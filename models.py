@@ -90,17 +90,15 @@ class Huang(DoubleLayerModel):
         self.n_max = n_water_bulk + 2 * self.n_0 
 
         d_solvent_m = (1/self.n_max)**(1/3)  # water molecule diameter, m
+        self.dc = d_cation_m 
+        self.da = d_anion_m
         self.gamma_c = d_cation_m**3/d_solvent_m**3
         self.gamma_a = d_anion_m**3/d_solvent_m**3 
         self.chi = self.n_0 / self.n_max
 
-        self.kappa = None
-        if self.model_water_molecules:
-            self.kappa = np.sqrt(2*self.n_max*(C.z*C.e_0)**2/(C.eps_0*C.k_B*C.T))
-        else:
-            self.kappa = np.sqrt(2*self.n_max*(C.z*C.e_0)**2/(C.eps_0*C.eps_r_water*C.k_B*C.T))
-
-        self.p = np.sqrt(3 * C.k_B * C.T * (C.eps_r_water - 1) * C.eps_0 / n_water_bulk)
+        self.kappa = np.sqrt(2*self.n_0*(C.z*C.e_0)**2/(C.eps_0*C.eps_r_water*C.k_B*C.T))
+        self.eps_r_opt = 1
+        self.p = np.sqrt(3 * C.k_B * C.T * (C.eps_r_water - self.eps_r_opt) * C.eps_0 / n_water_bulk)
         self.ptilde = self.p * self.kappa / (C.z * C.e_0)
 
     def computeBoltzmannFactorsAndOmega(self, y):
@@ -140,7 +138,7 @@ class Huang(DoubleLayerModel):
         """
         eps = None
         if self.model_water_molecules:
-            eps = 1 + 1/2 * self.ptilde**2 * (1 - self.chi * BFc / Omega - self.chi * BFa/Omega) * self.langevinOfXOverX(self.ptilde * soly_1)
+            eps = self.eps_r_opt + 1/2 * C.eps_r_water * self.ptilde**2 * (1 - self.chi * BFc / Omega - self.chi * BFa/Omega) * self.langevinOfXOverX(self.ptilde * soly_1) / self.chi
         else:
             eps = np.ones(soly_1.shape) * C.eps_r_water
         return eps
@@ -148,18 +146,17 @@ class Huang(DoubleLayerModel):
     def odeSystem(self, x, y):
         """
         System of nondimensionalized 1st order ODE's that we solve
-        """
+        """        
         dy1 = y[1, :]
-        
-        BFc, BFa, BFs, Omega = self.computeBoltzmannFactorsAndOmega(y)
-        
-        H = 1/2 * (1 - 1/BFs**2) * (1 - self.chi * BFc / Omega - self.chi * BFa/Omega)
-        
+
+        BFc, BFa, BFs, Omega = self.computeBoltzmannFactorsAndOmega(y)        
+        H = 1/2 * (C.eps_r_water / self.eps_r_opt) * (1 - 1/BFs**2) * (1 - self.chi * BFc / Omega - self.chi * BFa/Omega) / self.chi
+
         dy2 = None
         if self.model_water_molecules:
-            dy2 = - 1/2 * self.chi * (BFc - BFa) / Omega * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+            dy2 = - 1/2 * (C.eps_r_water / self.eps_r_opt) * (BFc - BFa) / Omega * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         else:
-            dy2 = - 1/2 * self.chi * (BFc - BFa) / Omega
+            dy2 = - 1/2 * (C.eps_r_water / self.eps_r_opt) * (BFc - BFa) / Omega
         
         return np.vstack([dy1, dy2])
 
@@ -187,18 +184,18 @@ class Huang(DoubleLayerModel):
 
         sol = None 
 
-        pickle_name = f'sol_huang__xmax_{xmax_m*1e9:.0f}m__N_{N}__phi0_{phi0_V:.2f}__gammac_{self.gamma_c:.2f}__gammaa_{self.gamma_a:.2f}.pkl'
+        pickle_name = f'sol_huang__c0__{self.n_0/C.N_A/1e3:.3f}__xmax_{xmax_m*1e9:.0f}m__N_{N}__phi0_{phi0_V:.2f}__gammac_{self.gamma_c:.2f}__gammaa_{self.gamma_a:.2f}.pkl'
         folder_name = './solutions/'
         if pickle_name not in os.listdir(folder_name) or force_recalculation:
-            if verbose:
-                print('Existing solution not found. Solving...')
-            sol = solve_bvp(self.odeSystem, self.bc(phi0_V), x, y)
+            # if verbose:
+            #     print('Existing solution not found. Solving...')
+            sol = solve_bvp(self.odeSystem, self.bc(phi0_V), x, y, max_nodes=1000000, verbose=True)
             pickle.dump(sol, open(folder_name+pickle_name, 'wb'))
-            if verbose:
-                print(f'Solved and saved under {folder_name+pickle_name}.')
+            # if verbose:
+            #     print(f'Solved and saved under {folder_name+pickle_name}.')
         else:
-            if verbose:
-                print(f'File {pickle_name} found.')
+            # if verbose:
+            #     print(f'File {pickle_name} found.')
             sol = pickle.load(open(folder_name+pickle_name, 'rb'))
 
         return sol
@@ -216,7 +213,7 @@ class Huang(DoubleLayerModel):
 
         eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
 
-        df = pd.DataFrame({'x [nm]': self.getXAxis_m(xmax_m, N) * 1e9,
+        df = pd.DataFrame({'x [nm]': sol.x / self.kappa * 1e9,
                             'Potential [V]': sol.y[0, :] / (C.beta * C.z * C.e_0),
                             'Cation conc. [M]': c_cat,
                             'Anion conc. [M]': c_an,
@@ -267,7 +264,7 @@ class Huang(DoubleLayerModel):
         Parallelized using the multiprocessing Python module.
         """
         xmax_m = 100e-9
-        N = 50000
+        N = 10000
 
         pool = mp.Pool(mp.cpu_count())
         charge_C = pool.starmap(self.computeCharge, [(xmax_m, N, phi, force_recalculation) for phi in potential_V])
