@@ -8,6 +8,10 @@ import pandas as pd
 import multiprocessing as mp
 
 class DoubleLayerModel(ABC):
+    """
+    Abstract base class for a double layer model, requiring all 
+    derived classes to have the same methods
+    """
     @abstractmethod
     def __init__(self):
         pass
@@ -22,6 +26,11 @@ class DoubleLayerModel(ABC):
 
 
 class GuyChapman(DoubleLayerModel):
+    """
+    Guy-Chapman model, treating ions as point particles obeying Boltzmann statistics.
+
+    See e.g. Schmickler & Santos' Interfacial Electrochemistry.
+    """
     def __init__(self, ionconc_M, pzc_V):
         self.n_0 = ionconc_M * 1e3 * C.N_A
         self.kappa_debye = np.sqrt(2*self.n_0*(C.z*C.e_0)**2/(C.eps_r_water*C.eps_0*C.k_B*C.T))
@@ -35,6 +44,12 @@ class GuyChapman(DoubleLayerModel):
 
 
 class BorukhovAndelmanOrland(DoubleLayerModel):
+    """
+    Model developed by Borukhov, Andelman and Orland, modifying the Guy-Chapman model to 
+    take finite ion size into account.
+
+    https://doi.org/10.1016/S0013-4686(00)00576-4
+    """
     def __init__(self, ionconc_M, pzc_V, d_ions_m):
         self.n_0 = ionconc_M * 1e3 * C.N_A
         self.kappa_debye = np.sqrt(2*self.n_0*(C.z*C.e_0)**2/(C.eps_r_water*C.eps_0*C.k_B*C.T))
@@ -59,6 +74,13 @@ class BorukhovAndelmanOrland(DoubleLayerModel):
 
 
 class Huang(DoubleLayerModel):
+    """
+    Model developed by Jun Huang and co-workers, taking into account finite ion size and 
+    dipole moments of the solution molecules.
+
+    https://doi.org/10.1021/acs.jctc.1c00098
+    https://doi.org/10.1021/jacsau.1c00315
+    """
     def __init__(self, ionconc_M, pzc_V, d_cation_m, d_anion_m, model_water_molecules=True):
         self.n_0 = ionconc_M * 1e3 * C.N_A
         self.pzc_V = pzc_V
@@ -82,13 +104,21 @@ class Huang(DoubleLayerModel):
         self.ptilde = self.p * self.kappa / (C.z * C.e_0)
 
     def computeBoltzmannFactorsAndOmega(self, y):
+        """
+        Compute the Boltzmann factors
+        BFc = exp(-z e beta phi)
+        BFa = exp(+z e beta phi)
+        BFs = sinh(beta p E)/(beta p E)
+
+        minimum and maximum are to avoid infinities or division by zero
+        """
         BFc = np.minimum(np.exp(-y[0, :]), 1e60)
         BFa = np.minimum(np.exp(+y[0, :]), 1e60)
         BFs = None
         if self.model_water_molecules:
             BFs = np.maximum(np.minimum(np.sinh(self.ptilde * y[1, :]), 1e60)/(self.ptilde * y[1, :] + 1e-60), 1e-60)
         else:
-            BFs = 1
+            BFs = 1 # If we don't model the water molecule dipoles, p=0 so sinh x/x = 1
         Omega = (1 - 2*self.chi) * BFs + self.gamma_c * self.chi * BFc + self.gamma_a * self.chi * BFa
 
         return BFc, BFa, BFs, Omega
@@ -105,6 +135,9 @@ class Huang(DoubleLayerModel):
         return ret
 
     def computePermittivity(self, BFa, BFc, Omega, soly_1):
+        """
+        Compute the permittivity using the electric field
+        """
         eps = None
         if self.model_water_molecules:
             eps = 1 + 1/2 * self.ptilde**2 * (1 - self.chi * BFc / Omega - self.chi * BFa/Omega) * self.langevinOfXOverX(self.ptilde * soly_1)
@@ -113,6 +146,9 @@ class Huang(DoubleLayerModel):
         return eps
     
     def odeSystem(self, x, y):
+        """
+        System of nondimensionalized 1st order ODE's that we solve
+        """
         dy1 = y[1, :]
         
         BFc, BFa, BFs, Omega = self.computeBoltzmannFactorsAndOmega(y)
@@ -128,15 +164,24 @@ class Huang(DoubleLayerModel):
         return np.vstack([dy1, dy2])
 
     def bc(self, phi_bc_V):
+        """
+        Boundary conditions: fixed potential at the metal, zero potential at "infinity" (or: far enough away)
+        """
         return lambda ya, yb : np.array([ya[0] - phi_bc_V * C.beta * C.z * C.e_0, yb[0]])   
 
     def getXAxis_m(self, xmax_m, N):
+        """
+        Get a logarithmically spaced x-axis, fine mesh close to electrode
+        """
         xmax_nm = xmax_m * 1e9
         expmax = np.log10(xmax_nm)
         x = np.logspace(-9, expmax, N) - 1e-9
         return x*1e-9
 
     def getOdeSol(self, xmax_m, N, phi0_V, verbose=False, force_recalculation=False):
+        """
+        Solve the ODE system or load the solution if there is one (if we want to plot many things)
+        """
         x = self.kappa * self.getXAxis_m(xmax_m, N)
         y = np.zeros((2, x.shape[0]))
 
@@ -159,6 +204,9 @@ class Huang(DoubleLayerModel):
         return sol
 
     def getProfileDataframe(self, xmax_m, N, phi0_V, force_recalculation=False):
+        """
+        Get a dataframe with potential and concentration profiles
+        """
         sol = self.getOdeSol(xmax_m, N, phi0_V, verbose=True, force_recalculation=force_recalculation)
         BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
 
@@ -177,17 +225,19 @@ class Huang(DoubleLayerModel):
         return df
 
     def computeCharge(self, xmax_m, N, potential_V, force_recalculation=False):
-            sol = self.getOdeSol(xmax_m, N, potential_V, verbose=False, force_recalculation=force_recalculation)
-            BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)          
+        """
+        Compute the surface charge at a given potential
+        """
+        sol = self.getOdeSol(xmax_m, N, potential_V, verbose=False, force_recalculation=force_recalculation)   
 
-            BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
-            eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
-            
-            # dphidx = - np.diff(sol.y[0, :]) / (C.beta * C.z * C.e_0) / np.diff(x)
-            dphidx = - sol.y[1, :] * self.kappa / (C.beta * C.z * C.e_0)
+        BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
+        eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
+        
+        # dphidx = - np.diff(sol.y[0, :]) / (C.beta * C.z * C.e_0) / np.diff(x)
+        dphidx = - sol.y[1, :] * self.kappa / (C.beta * C.z * C.e_0)
 
-            charge_C = C.eps_0 * eps[0] * dphidx[0]
-            return charge_C
+        charge_C = C.eps_0 * eps[0] * dphidx[0]
+        return charge_C
 
     # def getCapacitance_uFcm2(self, potential_V, force_recalculation=False):
     #     xmax_m = 100e-9
@@ -212,6 +262,10 @@ class Huang(DoubleLayerModel):
 
 
     def getCapacitance_uFcm2(self, potential_V, force_recalculation=False):
+        """
+        Compute the differential capacitance in microfarads per square cm. 
+        Parallelized using the multiprocessing Python module.
+        """
         xmax_m = 100e-9
         N = 50000
 
