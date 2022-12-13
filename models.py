@@ -120,6 +120,8 @@ class Huang(DoubleLayerModel):
 
         self.kappa = np.sqrt(2*self.n_0*(C.z*C.e_0)**2/(C.eps_0*C.eps_r_water*C.k_B*C.T))
         self.eps_r_opt = 1
+        if not self.model_water_molecules:
+            self.eps_r_opt = C.eps_r_water
         self.p = np.sqrt(3 * C.k_B * C.T * (C.eps_r_water - self.eps_r_opt) * C.eps_0 / n_water_bulk)
         self.ptilde = self.p * self.kappa / (C.z * C.e_0)
 
