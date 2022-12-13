@@ -6,6 +6,24 @@ import os
 import pickle
 import pandas as pd
 import multiprocessing as mp
+from dataclasses import dataclass
+
+@dataclass
+class DoubleLayerModelSolution:
+    x:      np.ndarray  # position, nm
+    phi:    np.ndarray  # potential, V
+    efield: np.ndarray  # electric field, V/m
+    c_cat:  np.ndarray  # cation concentration, M
+    c_an:   np.ndarray  # anion concentration, M
+    c_sol:  np.ndarray  # solvent concentration, M
+    eps:    np.ndarray  # relative permittivity
+
+@dataclass
+class PotentialSweepSolution:
+    phi:    np.ndarray  # potential, V
+    charge: np.ndarray  # surface charge, C/m^2
+    cap:    np.ndarray  # differential capacity, uF/cm2
+
 
 class DoubleLayerModel(ABC):
     """
@@ -17,11 +35,11 @@ class DoubleLayerModel(ABC):
         pass
     
     @abstractmethod
-    def getCapacitance_uFcm2(self, potential_V):
+    def getPotentialSweepSolution(self, potential_V):
         pass
 
     @abstractmethod
-    def getProfileDataframe(self, xmax_m, N, phi0_V):
+    def getDoubleLayerModelSolution(self, x_nm, phi0_V):
         pass
 
 
@@ -36,10 +54,12 @@ class GuyChapman(DoubleLayerModel):
         self.kappa_debye = np.sqrt(2*self.n_0*(C.z*C.e_0)**2/(C.eps_r_water*C.eps_0*C.k_B*C.T))
         self.pzc_V = pzc_V
 
-    def getCapacitance_uFcm2(self, potential_V):
-        return self.kappa_debye * C.eps_r_water * C.eps_0 * np.cosh(C.beta*C.z*C.e_0/2 * (potential_V - self.pzc_V)) * 1e2
+    def getPotentialSweepSolution(self, potential_V):
+        cap = self.kappa_debye * C.eps_r_water * C.eps_0 * np.cosh(C.beta*C.z*C.e_0/2 * (potential_V - self.pzc_V)) * 1e2
+        ret = PotentialSweepSolution(phi=potential_V, charge=np.zeros(potential_V.shape), cap=cap)
+        return ret
 
-    def getProfileDataframe(self, xmax_m, N, phi0_V):
+    def getDoubleLayerModelSolution(self, x_nm, phi0_V):
         return None
 
 
@@ -58,18 +78,20 @@ class BorukhovAndelmanOrland(DoubleLayerModel):
         self.a = d_ions_m
         self.chi0 = 2 * d_ions_m ** 3 * self.n_0 
 
-    def calculate_C_intermediatestep_uFcm2(self, phi_V):
+    def capacitanceIntermediateStep_uFcm2(self, phi_V):
         return np.sqrt(2) * self.kappa_debye * C.eps_r_water * C.eps_0 / np.sqrt(self.chi0) \
             * self.chi0 * np.sinh(C.beta*C.z*C.e_0*phi_V) \
             / (self.chi0 * np.cosh(C.beta*C.z*C.e_0*phi_V) - self.chi0 + 1) \
             / (2*np.sqrt(np.log(self.chi0 * np.cosh(C.beta*C.z*C.e_0*phi_V) - self.chi0 + 1))) \
             * 1e2 # uF/cm^2
 
-    def getCapacitance_uFcm2(self, potential_V):
-        return self.calculate_C_intermediatestep_uFcm2(potential_V - self.pzc_V) * (potential_V > self.pzc_V) \
-            - self.calculate_C_intermediatestep_uFcm2(potential_V - self.pzc_V) * (potential_V <= self.pzc_V)
+    def getPotentialSweepSolution(self, potential_V):
+        cap = self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V > self.pzc_V) \
+            - self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V <= self.pzc_V)
+        ret = PotentialSweepSolution(phi=potential_V, charge=np.zeros(potential_V.shape), cap=cap)
+        return ret
         
-    def getProfileDataframe(self, xmax_m, N, phi0_V):
+    def getDoubleLayerModelSolution(self, x_nm, phi0_V):
         return None
 
 
@@ -145,7 +167,10 @@ class Huang(DoubleLayerModel):
     
     def odeSystem(self, x, y):
         """
-        System of nondimensionalized 1st order ODE's that we solve
+        System of dimensionless 1st order ODE's that we solve
+
+        x: dimensionless x-axis of length n, i.e. kappa (1/m) times x-position (m).
+        y: dimensionless potential phi and dphi/dx, size 2 x n.
         """        
         dy1 = y[1, :]
 
@@ -163,6 +188,8 @@ class Huang(DoubleLayerModel):
     def bc(self, phi_bc_V):
         """
         Boundary conditions: fixed potential at the metal, zero potential at "infinity" (or: far enough away)
+
+        Returns a boundary condition function for use in scipy's solve_bvp
         """
         return lambda ya, yb : np.array([ya[0] - phi_bc_V * C.beta * C.z * C.e_0, yb[0]])   
 
@@ -179,47 +206,43 @@ class Huang(DoubleLayerModel):
         """
         Solve the ODE system or load the solution if there is one (if we want to plot many things)
         """
-        x = self.kappa * self.getXAxis_m(xmax_m, N)
-        y = np.zeros((2, x.shape[0]))
+        x = self.kappa * self.getXAxis_m(xmax_m, N) # dimensionless x-axis
+        y = np.zeros((2, x.shape[0])) 
 
         sol = None 
 
-        pickle_name = f'sol_huang__c0__{self.n_0/C.N_A/1e3:.3f}__xmax_{xmax_m*1e9:.0f}m__N_{N}__phi0_{phi0_V:.2f}__gammac_{self.gamma_c:.2f}__gammaa_{self.gamma_a:.2f}.pkl'
+        pickle_name = f'sol_huang__c0__{self.n_0/C.N_A/1e3:.3f}__xmax_{xmax_m*1e9:.0f}nm__N_{N}__phi0_{phi0_V:.2f}__dc_{self.dc*1e10:.0f}__da_{self.da*1e10:.0f}.pkl'
         folder_name = './solutions/'
         if pickle_name not in os.listdir(folder_name) or force_recalculation:
-            # if verbose:
-            #     print('Existing solution not found. Solving...')
-            sol = solve_bvp(self.odeSystem, self.bc(phi0_V), x, y, max_nodes=1000000, verbose=True)
+            sol = solve_bvp(self.odeSystem, self.bc(phi0_V), x, y, max_nodes=1000000, verbose=verbose)
             pickle.dump(sol, open(folder_name+pickle_name, 'wb'))
-            # if verbose:
-            #     print(f'Solved and saved under {folder_name+pickle_name}.')
+            if verbose:
+                print(f'Solved and saved under {folder_name+pickle_name}.')
         else:
-            # if verbose:
-            #     print(f'File {pickle_name} found.')
+            if verbose:
+                print(f'File {pickle_name} found.')
             sol = pickle.load(open(folder_name+pickle_name, 'rb'))
 
         return sol
 
-    def getProfileDataframe(self, xmax_m, N, phi0_V, force_recalculation=False):
-        """
-        Get a dataframe with potential and concentration profiles
-        """
+    def getDoubleLayerModelSolution(self, xmax_m, N, phi0_V, force_recalculation=False):
         sol = self.getOdeSol(xmax_m, N, phi0_V, verbose=True, force_recalculation=force_recalculation)
         BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
-
+        
         c_cat = self.n_max * self.chi * BFc / Omega / C.N_A / 1e3
         c_an = self.n_max * self.chi * BFa / Omega / C.N_A / 1e3
         c_sol = self.n_max / C.N_A / 1e3 - c_cat - c_an
 
         eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
-
-        df = pd.DataFrame({'x [nm]': sol.x / self.kappa * 1e9,
-                            'Potential [V]': sol.y[0, :] / (C.beta * C.z * C.e_0),
-                            'Cation conc. [M]': c_cat,
-                            'Anion conc. [M]': c_an,
-                            'Solvent conc. [M]': c_sol,
-                            'Rel. permittivity': eps})
-        return df
+        ret = DoubleLayerModelSolution(
+            x=sol.x / self.kappa * 1e9, 
+            phi=sol.y[0, :] / (C.beta * C.z * C.e_0),
+            efield=sol.y[1, :] * self.kappa / (C.beta * C.z * C.e_0), 
+            c_cat=c_cat,
+            c_an=c_an,
+            c_sol=c_sol,
+            eps=eps)
+        return ret
 
     def computeCharge(self, xmax_m, N, potential_V, force_recalculation=False):
         """
@@ -229,36 +252,12 @@ class Huang(DoubleLayerModel):
 
         BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
         eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
-        
-        # dphidx = - np.diff(sol.y[0, :]) / (C.beta * C.z * C.e_0) / np.diff(x)
         dphidx = - sol.y[1, :] * self.kappa / (C.beta * C.z * C.e_0)
 
         charge_C = C.eps_0 * eps[0] * dphidx[0]
         return charge_C
 
-    # def getCapacitance_uFcm2(self, potential_V, force_recalculation=False):
-    #     xmax_m = 100e-9
-    #     N = 10000
-    #     x = self.getXAxis_m(xmax_m, N)
-
-    #     charge_C = np.zeros(np.atleast_1d(potential_V).shape)
-
-    #     for i, phi in enumerate(potential_V):
-    #         sol = self.getOdeSol(xmax_m, N, phi, verbose=False, force_recalculation=force_recalculation)
-    #         BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)          
-
-    #         BFc, BFa, _, Omega = self.computeBoltzmannFactorsAndOmega(sol.y)
-    #         eps = self.computePermittivity(BFa, BFc, Omega, sol.y[1, :])
-            
-    #         # dphidx = - np.diff(sol.y[0, :]) / (C.beta * C.z * C.e_0) / np.diff(x)
-    #         dphidx = - sol.y[1, :] * self.kappa / (C.beta * C.z * C.e_0)
-
-    #         charge_C[i] = C.eps_0 * eps[0] * dphidx[0]
-        
-    #     return np.gradient(charge_C, edge_order=2) / np.gradient(potential_V) * 1e2
-
-
-    def getCapacitance_uFcm2(self, potential_V, force_recalculation=False):
+    def getPotentialSweepSolution(self, potential_V, force_recalculation=False):
         """
         Compute the differential capacitance in microfarads per square cm. 
         Parallelized using the multiprocessing Python module.
@@ -267,7 +266,9 @@ class Huang(DoubleLayerModel):
         N = 10000
 
         pool = mp.Pool(mp.cpu_count())
-        charge_C = pool.starmap(self.computeCharge, [(xmax_m, N, phi, force_recalculation) for phi in potential_V])
+        charge = pool.starmap(self.computeCharge, [(xmax_m, N, phi, force_recalculation) for phi in potential_V])
         pool.close()
 
-        return np.gradient(charge_C, edge_order=2) / np.gradient(potential_V) * 1e2
+        cap = np.gradient(charge, edge_order=2) / np.gradient(potential_V) * 1e2
+        ret = PotentialSweepSolution(phi=potential_V, charge=charge, cap=cap)
+        return ret
