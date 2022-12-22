@@ -86,11 +86,17 @@ class BorukhovAndelmanOrland(DoubleLayerModel):
             * 1e2 # uF/cm^2
 
     def getPotentialSweepSolution(self, potential_V):
-        cap = self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V > self.pzc_V) \
-            - self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V <= self.pzc_V)
+        # cap = self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V > self.pzc_V) \
+        #     - self.capacitanceIntermediateStep_uFcm2(potential_V - self.pzc_V) * (potential_V <= self.pzc_V)
+        cap = np.sqrt(2) * self.kappa_debye * C.eps_r_water * C.eps_0 / np.sqrt(self.chi0) \
+            * self.chi0 * np.sinh(C.beta*C.z*C.e_0*np.abs(potential_V)) \
+            / (self.chi0 * np.cosh(C.beta*C.z*C.e_0*potential_V) - self.chi0 + 1) \
+            / (2*np.sqrt(np.log(self.chi0 * np.cosh(C.beta*C.z*C.e_0*potential_V) - self.chi0 + 1))) \
+            * 1e2 # uF/cm^2
         ret = PotentialSweepSolution(phi=potential_V, charge=np.zeros(potential_V.shape), cap=cap)
         return ret
-        
+
+
     def getDoubleLayerModelSolution(self, x_nm, phi0_V):
         return None
 
