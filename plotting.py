@@ -10,10 +10,11 @@ def plot_solution(sol: models.SpatialProfilesSolution, xmin: float, xmax: float)
     Plot spatial profiles
     """
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(9,4), sharex=True)
-    ax[0].plot(sol.x, sol.phi, label='Huang', color='black')
+    ax[0].plot(sol.x, sol.phi, label=sol.name, color='black')
     ax[0].set_xlabel(r'$x$ [nm]')
     ax[0].set_ylabel(r'$\phi$ [V vs. PZC]')
     ax[0].set_xlim([xmin, xmax])
+    ax[0].legend()
 
     ax[1].plot(sol.x, sol.c_cat, color='tab:blue', label='Cations')
     ax[1].plot(sol.x, sol.c_an, color='tab:red', label='Anions')

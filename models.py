@@ -27,6 +27,7 @@ class SpatialProfilesSolution:
     c_an:   np.ndarray
     c_sol:  np.ndarray
     eps:    np.ndarray
+    name:   str
 
 
 def get_x_axis_nm(xmax_nm, N):
@@ -64,8 +65,23 @@ def solve_spatial_profile_gc(x_axis_nm: np.ndarray, ion_concentration: float, bo
         c_cat=n_0 * np.exp(-sol.y[0, :]) / C.N_A / 1e3,
         c_an=n_0 * np.exp(sol.y[0, :]) / C.N_A / 1e3,
         c_sol=np.zeros(sol.x.shape),
-        eps=np.ones(sol.x.shape) * C.EPS_R_WATER)
+        eps=np.ones(sol.x.shape) * C.EPS_R_WATER,
+        name='Guy-Chapman')
     return ret
+
+
+def solve_spatial_profile_bao(
+        x_axis_nm: np.ndarray,
+        ion_concentration: float,
+        d_ion: float,
+        boundary_condition: bc.BoundaryCondition):
+    """
+    Model developed by Borukhov, Andelman and Orland, modifying the Guy-Chapman model to
+    take finite ion size into account.
+    https://doi.org/10.1016/S0013-4686(00)00576-4
+    """
+    return None
+
 
 
 # class BorukhovAndelmanOrland(DoubleLayerModel):
