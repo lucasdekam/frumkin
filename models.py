@@ -76,8 +76,7 @@ def solve_spatial_profile_bao(
         d_ion: float,
         boundary_condition: bc.BoundaryCondition):
     """
-    Model developed by Borukhov, Andelman and Orland, modifying the Guy-Chapman model to
-    take finite ion size into account.
+    Model developed by Borukhov, Andelman and Orland to take finite ion size into account.
     https://doi.org/10.1016/S0013-4686(00)00576-4
     """
     return None
