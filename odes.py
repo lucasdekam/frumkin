@@ -1,5 +1,5 @@
 """
-ODE tools for double layer models
+ODE tools for double-layer models
 """
 import os
 import pickle

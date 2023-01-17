@@ -1,5 +1,5 @@
 """
-Boundary condition tools for double layer models
+Boundary condition tools for double-layer models
 """
 from abc import ABC, abstractmethod
 import numpy as np

@@ -1,7 +1,8 @@
-from matplotlib import axes
-import matplotlib.pyplot as plt
-import numpy as np
+"""
+Plotting tools for double-layer models
+"""
 
+import matplotlib.pyplot as plt
 import models
 
 def plot_solution(sol: models.SpatialProfilesSolution, xmin: float, xmax: float):

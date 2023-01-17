@@ -1,5 +1,5 @@
 """
-Potential sweep tools for double layer models
+Potential sweep tools for double-layer models
 """
 from dataclasses import dataclass
 

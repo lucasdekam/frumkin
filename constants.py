@@ -1,5 +1,5 @@
 """
-Physical constants for use in double layer models
+Physical constants for use in double-layer models
 """
 
 E_0 = 1.602e-19             # elementary charge
