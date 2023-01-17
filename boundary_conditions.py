@@ -8,7 +8,8 @@ import constants as C
 
 class BoundaryCondition(ABC):
     """
-    Abstract base class for boundary conditions
+    Abstract base class for boundary conditions. Makes sure that each class
+    has a function to pass to an ODE solver, and a name property
     """
     @abstractmethod
     def func(self, ya, yb):
