@@ -46,7 +46,8 @@ def solve_spatial_profile_gc(x_axis_nm: np.ndarray, ion_concentration: float, bo
     See for example Schmickler & Santos' Interfacial Electrochemistry.
     """
     n_0 = ion_concentration * 1e3 * C.N_A
-    kappa_debye = np.sqrt(2*n_0*(C.Z*C.E_0)**2/(C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
+    kappa_debye = np.sqrt(2*n_0*(C.Z*C.E_0)**2 /
+                          (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
 
     # Solve ODE problem for potential
     x_axis = kappa_debye * 1e-9 * x_axis_nm
@@ -82,7 +83,6 @@ def solve_spatial_profile_bao(
     return None
 
 
-
 # class BorukhovAndelmanOrland(DoubleLayerModel):
 #     """
 #     Model developed by Borukhov, Andelman and Orland, modifying the Guy-Chapman model to
@@ -116,7 +116,6 @@ def solve_spatial_profile_bao(
 #             * 1e2 # uF/cm^2
 #         ret = PotentialSweepSolution(phi=potential_V, charge=np.zeros(potential_V.shape), cap=cap)
 #         return ret
-
 
 
 #     def bc(self, phi_bc_V):
