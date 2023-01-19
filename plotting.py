@@ -16,22 +16,28 @@ def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float, lo
     ax[0].set_xlim([xmin, xmax])
     ax[0].legend()
 
-    ax[1].plot(sol.x, sol.c_cat, color='tab:blue', label='Cations')
-    ax[1].plot(sol.x, sol.c_an, color='tab:red', label='Anions')
+    ln1 = ax[1].plot(sol.x, sol.c_cat, color='tab:blue', label='Cations')
+    ln2 = ax[1].plot(sol.x, sol.c_an, color='tab:red', label='Anions')
 
     if plot_water and not logscale:
         waterax = ax[1].twinx()
-        waterax.plot(sol.x, sol.c_sol, '-', color='gray')
+        ln3=waterax.plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
         waterax.set_ylim([0, 60])
+
+        lns = ln1+ln2+ln3
+        labs = [l.get_label() for l in lns]
+        ax[1].legend(lns, labs, loc='right')
     elif plot_water and logscale:
         ax[1].plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
+        ax[1].legend()
+    else:
+        ax[1].legend()
 
     if logscale:
         ax[1].set_yscale('log')
     else:
         ax[1].set_yscale('linear')
 
-    ax[1].legend(loc='lower right')
     ax[1].set_ylabel('c [M]')
     ax[1].set_xlabel(r'$x$ [nm]')
 

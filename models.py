@@ -137,7 +137,6 @@ class BorukhovAndelmanOrland(DoubleLayerModel):
     take finite ion size into account.
     https://doi.org/10.1016/S0013-4686(00)00576-4
     """
-
     def __init__(self, ion_concentration_molar: float, a_m: float):
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
@@ -184,7 +183,7 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
     dipolar solution molecules are taken into account.
     https://doi.org/10.1103/PhysRevLett.99.077801
     """
-
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, ion_concentration_molar: float, a_m: float, eps_r_opt: float = 1):
         """
         ion_concentration_molar: ion bulk concentration in molar
