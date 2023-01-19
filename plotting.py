@@ -5,7 +5,7 @@ Plotting tools for double-layer models
 import matplotlib.pyplot as plt
 import spatial_profiles as prf
 
-def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float):
+def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float, logscale=True, plot_water: bool=False):
     """
     Plot spatial profiles
     """
@@ -18,8 +18,20 @@ def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float):
 
     ax[1].plot(sol.x, sol.c_cat, color='tab:blue', label='Cations')
     ax[1].plot(sol.x, sol.c_an, color='tab:red', label='Anions')
-    ax[1].set_yscale('log')
-    ax[1].legend(loc='upper right')
+
+    if plot_water and not logscale:
+        waterax = ax[1].twinx()
+        waterax.plot(sol.x, sol.c_sol, '-', color='gray')
+        waterax.set_ylim([0, 60])
+    elif plot_water and logscale:
+        ax[1].plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
+
+    if logscale:
+        ax[1].set_yscale('log')
+    else:
+        ax[1].set_yscale('linear')
+
+    ax[1].legend(loc='lower right')
     ax[1].set_ylabel('c [M]')
     ax[1].set_xlabel(r'$x$ [nm]')
 
