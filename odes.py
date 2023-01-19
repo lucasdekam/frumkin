@@ -42,7 +42,7 @@ def get_solution(x_axis, ode, boundary_condition, model_name, spec_string, verbo
 
     return sol
 
-def ode_guy_chapman(x, y):
+def ode_guy_chapman(x, y): # pylint: disable=unused-argument, invalid-name
     """
     System of dimensionless 1st order ODE's that we solve
     x: dimensionless x-axis of length n, i.e. kappa (1/m) times x-position (m).
