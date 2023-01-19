@@ -3,9 +3,9 @@ Plotting tools for double-layer models
 """
 
 import matplotlib.pyplot as plt
-import models
+import spatial_profiles as prf
 
-def plot_solution(sol: models.SpatialProfilesSolution, xmin: float, xmax: float):
+def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float):
     """
     Plot spatial profiles
     """

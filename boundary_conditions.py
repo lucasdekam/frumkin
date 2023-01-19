@@ -6,7 +6,7 @@ import numpy as np
 
 import constants as C
 
-class BoundaryCondition(ABC):
+class BoundaryConditions(ABC):
     """
     Abstract base class for boundary conditions. Makes sure that each class
     has a function to pass to an ODE solver, and a name property
@@ -23,7 +23,7 @@ class BoundaryCondition(ABC):
         Returns the name of the boundary condition
         """
 
-class Dirichlet(BoundaryCondition):
+class Dirichlet(BoundaryConditions):
     """
     Dirichlet boundary condition for the potential.
 
