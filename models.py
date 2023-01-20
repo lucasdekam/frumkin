@@ -298,7 +298,7 @@ class Huang(Abrashkin):
         self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
         self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
-        self.a_m = 0.5e-10 # roughly Bohr radius
+        self.a_m = C.LATTICE_SPACING # roughly Bohr radius
 
         self.gamma_c = (d_cat_m / self.a_m) ** 3
         self.gamma_a = (d_an_m / self.a_m) ** 3
@@ -384,3 +384,111 @@ class HuangSimple(Abrashkin):
         n_an  = self.n_0 * bf_a / denom
         n_sol = self.n_s_0 * bf_s / denom
         return n_cat, n_an, n_sol
+
+
+class Species:
+    """
+    Keeps track of concentration of a species in the Multispecies double layer model,
+    and how to calculate its Boltzmann factor
+    """
+    def __init__(self, concentration_molar: float,
+                       diameter_m: float,
+                       charge: float) -> None:
+        self.n_0 = concentration_molar * 1e3 * C.N_A
+        self.charge = charge
+        self.chi = self.n_0 * C.LATTICE_SPACING ** 3
+        self.gamma = (diameter_m / C.LATTICE_SPACING) ** 3
+
+    def boltzmann_factor(self, y_0):
+        """
+        Return the Boltzmann factor, depending on the charge and the
+        electric potential.
+        y_0: dimensionless electric potential
+        """
+        return np.exp(-self.charge * y_0)
+
+
+class Solvent(Species):
+    """
+    Special solvent species class
+    """
+    def __init__(self, diameter_m: float) -> None:
+        super().__init__(C.C_WATER_BULK, diameter_m, 0)
+
+    def boltzmann_factor(self, p_tilde: float, y_1: np.ndarray):
+        """
+        Compute solvent Boltzmann factor.
+        p_tilde: dimensionless dipole moment
+        y_1: dimensionless electric field
+        """
+        # pylint: disable=arguments-differ
+        bf_s = np.zeros(y_1.shape)
+        select = np.abs(p_tilde * y_1) > 1e-9
+        bf_s[select] = np.sinh(p_tilde * y_1[select])/(p_tilde * y_1[select])
+        bf_s[~select] = 1
+        return bf_s
+
+
+class Multispecies(DoubleLayerModel):
+    """
+    Modification of Huang's model to include multiple ion species.
+    """
+    def __init__(self, species_list, solvent, eps_r_opt) -> None:
+        self.species = species_list
+        self.solvent = solvent
+        self.eps_r_opt = eps_r_opt
+
+        charge_densities = [s.charge * s.n_0 for s in self.species]
+        if sum(charge_densities) != 0:
+            raise ValueError('No charge neutrality')
+
+        ionic_densities = [s.charge**2 * s.n_0 for s in self.species]
+        self.ionic_str = sum(ionic_densities) / 2
+        self.kappa_debye = np.sqrt(2*self.ionic_str*C.E_0**2 /
+                                   (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
+
+        self.chi_v = 1 - self.solvent.gamma * self.solvent.chi
+        for s in self.species: #pylint: disable=invalid-name
+            self.chi_v -= s.gamma * s.chi
+
+        # Computing the dipole moment p and the dimensionless ptilde
+        p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.solvent.n_0)
+        self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
+
+        self.name = 'Multispecies'
+
+    def densities(self, sol_y):
+        """
+        Compute cation, anion and solvent densities.
+        """
+        bf_s = self.solvent.boltzmann_factor(self.p_tilde, sol_y[1, :])
+        boltzmann_times_gamma = [s.gamma * s.chi * s.boltzmann_factor(sol_y[0, :]) for s in self.species]
+        denom = self.chi_v + self.solvent.gamma * self.solvent.chi * bf_s + sum(boltzmann_times_gamma)
+
+        n_list = [s.n_0 * s.boltzmann_factor(sol_y[0, :])/denom for s in self.species]
+        rho_list = [s.charge * s.n_0 * s.boltzmann_factor(sol_y[0, :])/denom for s in self.species]
+        n_sol = self.solvent.n_0 * bf_s / denom
+        return n_list, rho_list, n_sol
+
+    def ode_rhs(self, x, y):
+        dy1 = y[1, :]
+        _, rho_list, n_sol = self.densities(y)
+        solfac = self.solvent.boltzmann_factor(self.p_tilde, y[1, :])
+
+        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/solfac**2) * n_sol/self.ionic_str
+        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * sum(rho_list)/self.ionic_str * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+        return np.vstack([dy1, dy2])
+
+    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+        # Obtain potential and electric field
+        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
+        sol = get_odesol(
+            x_axis,
+            self.ode_rhs,
+            boundary_conditions.func,
+            self.name,
+            f'c0_{self.ionic_str/1e3/C.N_A:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+
+        n_list, _, n_sol = self.densities(sol.y)
+
+        return sol.x, sol.y[0, :] / (C.BETA * C.Z * C.E_0), [n/1e3/C.N_A for n in n_list], rel_permittivity(self.eps_r_opt, self.ionic_str, n_sol, self.p_tilde, sol.y[1, :])

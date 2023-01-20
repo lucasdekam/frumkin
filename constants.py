@@ -11,3 +11,4 @@ BETA = 1/K_B/T              # inverse thermal energy
 EPS_0 = 8.8541878128e-12    # vacuum permittivity, F/m
 EPS_R_WATER = 78.5          # relative permittivity of bulk water
 C_WATER_BULK = 55.5         # water bulk concentration, molar
+LATTICE_SPACING = 0.5e-10   # lattice spacing, m
