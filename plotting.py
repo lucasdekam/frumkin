@@ -2,6 +2,7 @@
 Plotting tools for double-layer models
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 import spatial_profiles as prf
 
@@ -21,12 +22,13 @@ def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float, lo
 
     if plot_water and not logscale:
         waterax = ax[1].twinx()
-        ln3=waterax.plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
-        waterax.set_ylim([0, 60])
-
+        ln3=waterax.plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent sites')
+        waterax.set_ylim([0, np.max(sol.c_an+sol.c_cat+sol.c_sol)+0.1])
+        # ln3=ax[1].plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent sites')
+        # ax[1].plot(sol.x, sol.c_an+sol.c_cat+sol.c_sol, '--', color='tab:green')
         lns = ln1+ln2+ln3
         labs = [l.get_label() for l in lns]
-        ax[1].legend(lns, labs, loc='right')
+        ax[1].legend(lns, labs)
     elif plot_water and logscale:
         ax[1].plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
         ax[1].legend()

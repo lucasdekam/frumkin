@@ -1,5 +1,5 @@
 """
-ODE tools for double-layer models
+Implementation of double-layer models
 """
 import os
 import pickle
@@ -62,9 +62,14 @@ def langevin_x_over_x(x): # pylint: disable=invalid-name
     return ret
 
 
-def rel_permittivity(eps_r_opt, n_0, n_sol, p_tilde, y_1):
+def rel_permittivity(eps_r_opt: float, n_0: float, n_sol: np.ndarray, p_tilde: float, y_1: np.ndarray):
     """
     Compute the permittivity using the electric field
+    eps_r_opt: relative optical/background permittivity
+    n_0: ion number density in the bulk (appears because Debye length is length scale)
+    n_sol: solvent number density
+    p_tilde: dimensionless dipole moment
+    y_1: dimensionless electric field
     """
     return eps_r_opt + 1/2 * C.EPS_R_WATER * p_tilde**2 * n_sol / n_0 * langevin_x_over_x(p_tilde * y_1)
 
@@ -198,11 +203,13 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
         self.eps_r_opt = eps_r_opt
 
         # Number density of vacancy sites in the bulk:
-        self.n_s_bulk = 1/a_m ** 3 - 2 * self.n_0
+        self.n_s_0 = 1/a_m ** 3 - 2 * self.n_0
+        if self.n_s_0 < 0:
+            raise ValueError('Ion number density is larger than lattice site density')
 
         # Computing the dipole moment p and the dimensionless ptilde
-        p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.n_s_bulk)
-        self.ptilde = p_water * self.kappa_debye / (C.Z * C.E_0)
+        p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.n_s_0)
+        self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
 
         self.name = 'Abrashkin'
 
@@ -210,13 +217,15 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
         """
         Compute cation, anion and solvent Boltzmann factors, and the denominator
         appearing in the expression of the number density profile.
-
-        Note: minimum and maximum are to avoid infinities or division by zero
         """
-        bf_c = np.minimum(np.exp(-sol_y[0, :]), 1e60)
-        bf_a = np.minimum(np.exp(+sol_y[0, :]), 1e60)
-        bf_s = np.maximum(np.minimum(np.sinh(
-            self.ptilde * sol_y[1, :]), 1e60)/(self.ptilde * sol_y[1, :] + 1e-60), 1e-60)
+        bf_c = np.exp(-sol_y[0, :])
+        bf_a = np.exp(+sol_y[0, :])
+
+        bf_s = np.zeros(sol_y[1, :].shape)
+        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
+        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
+        bf_s[~select] = 1
+
         denom = (1 - 2* self.chi) * bf_s + self.chi * (bf_c + bf_a)
         return bf_c, bf_a, bf_s, denom
 
@@ -224,7 +233,9 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
         dy1 = y[1, :]
         bf_c, bf_a, bf_s, denom = self.bfactors(y)
         H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * (1/self.chi - (bf_c + bf_a)/denom)
-        dy2 = - 1/2 * (C.EPS_R_WATER / self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+        if np.min(1/self.chi - (bf_c + bf_a)/denom) < 0:
+            print("problem!")
+        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
     def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
@@ -237,10 +248,10 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
             self.name,
             f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
 
-        bf_c, bf_a, _, denom = self.bfactors(sol.y)
+        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
-        n_sol = self.n_0/self.chi - n_cat - n_an
+        n_sol = self.n_s_0 * bf_s / denom
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
@@ -249,7 +260,7 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
             efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
             c_cat=n_cat/1e3/C.N_A,
             c_an=n_an/1e3/C.N_A,
-            c_sol=n_sol/self.n_s_bulk * C.C_WATER_BULK,
-            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.ptilde, sol.y[1, :]),
+            c_sol=n_sol/1e3/C.N_A,
+            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
             name=self.name)
         return ret
