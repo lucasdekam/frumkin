@@ -13,7 +13,7 @@ import boundary_conditions as bc
 import spatial_profiles as prf
 
 
-def get_odesol(x_axis, odefunc, boundary_condition, model_name, spec_string, verbose=False, force_recalculation=False):
+def get_odesol(x_axis, odefunc, boundary_condition, model_name, spec_string, verbose=True, force_recalculation=True):
     """
     Solve the ODE system or load the solution if there is one already
     """
@@ -29,7 +29,7 @@ def get_odesol(x_axis, odefunc, boundary_condition, model_name, spec_string, ver
 
     # Solve or load solution
     sol = None
-    if pickle_path not in os.listdir(folder_path) or force_recalculation:
+    if pickle_name not in os.listdir(folder_path) or force_recalculation:
         sol = solve_bvp(
             odefunc,
             boundary_condition,
@@ -136,7 +136,7 @@ class GouyChapman(DoubleLayerModel):
         return ret
 
 
-class BorukhovAndelmanOrland(DoubleLayerModel):
+class Borukhov(DoubleLayerModel):
     """
     Model developed by Borukhov, Andelman and Orland, modifying the Guy-Chapman model to
     take finite ion size into account.
@@ -182,7 +182,7 @@ class BorukhovAndelmanOrland(DoubleLayerModel):
         return ret
 
 
-class AbrashkinAndelmanOrland(DoubleLayerModel):
+class Abrashkin(DoubleLayerModel):
     """
     Abrashkin's extension of the Borukhov-Andelman-Orland model where
     dipolar solution molecules are taken into account.
@@ -213,27 +213,37 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
 
         self.name = 'Abrashkin'
 
-    def bfactors(self, sol_y):
+    def solvent_factor(self, y_1: np.ndarray):
         """
-        Compute cation, anion and solvent Boltzmann factors, and the denominator
-        appearing in the expression of the number density profile.
+        Compute solvent Boltzmann factor.
+        y_1: dimensionless electric field
+        """
+        bf_s = np.zeros(y_1.shape)
+        select = np.abs(self.p_tilde * y_1) > 1e-9
+        bf_s[select] = np.sinh(self.p_tilde * y_1[select])/(self.p_tilde * y_1[select])
+        bf_s[~select] = 1
+        return bf_s
+
+    def densities(self, sol_y):
+        """
+        Compute cation, anion and solvent densities.
         """
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
-
-        bf_s = np.zeros(sol_y[1, :].shape)
-        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
-        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
-        bf_s[~select] = 1
-
+        bf_s = self.solvent_factor(sol_y[1, :])
         denom = (1 - 2* self.chi) * bf_s + self.chi * (bf_c + bf_a)
-        return bf_c, bf_a, bf_s, denom
+        n_cat = self.n_0 * bf_c / denom
+        n_an  = self.n_0 * bf_a / denom
+        n_sol = self.n_s_0 * bf_s / denom
+        return n_cat, n_an, n_sol
 
     def ode_rhs(self, x, y):
         dy1 = y[1, :]
-        bf_c, bf_a, bf_s, denom = self.bfactors(y)
-        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * (1/self.chi - (bf_c + bf_a)/denom)
-        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+        n_cat, n_an, n_sol = self.densities(y)
+        solfac = self.solvent_factor(y[1, :])
+
+        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/solfac**2) * n_sol/self.n_0
+        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (n_cat - n_an)/self.n_0 * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
     def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
@@ -246,10 +256,7 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
             self.name,
             f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
 
-        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
-        n_cat = self.n_0 * bf_c / denom
-        n_an  = self.n_0 * bf_a / denom
-        n_sol = self.n_s_0 * bf_s / denom
+        n_cat, n_an, n_sol = self.densities(sol.y)
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
@@ -264,11 +271,13 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
         return ret
 
 
-class Huang(DoubleLayerModel):
+class Huang(Abrashkin):
     """
     Huang, Chen and Eikerling's extension of Abrashkin's model
     to take into account different solvent molecule and ion sizes.
     https://doi.org/10.1021/acs.jctc.1c00098
+
+    Inherits solvent_factor, ode_rhs, and solve from Abrashkin
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, ion_concentration_molar: float,
@@ -276,6 +285,7 @@ class Huang(DoubleLayerModel):
                        d_an_m: float,
                        d_sol_m: float,
                        eps_r_opt: float = 1):
+        # pylint: disable=super-init-not-called
         """
         ion_concentration_molar:    ion bulk concentration in molar
         d_cat_m:                    cation diameter in meters
@@ -306,69 +316,34 @@ class Huang(DoubleLayerModel):
 
         self.name = 'Huang'
 
-    def bfactors(self, sol_y):
+    def densities(self, sol_y):
         """
-        Compute cation, anion and solvent Boltzmann factors, and the denominator
-        appearing in the expression of the number density profile.
+        Compute cation, anion and solvent densities.
         """
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
-
-        bf_s = np.zeros(sol_y[1, :].shape)
-        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
-        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
-        bf_s[~select] = 1
-
+        bf_s = self.solvent_factor(sol_y[1, :])
         denom = self.chi_v + self.gamma_s*self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
-        return bf_c, bf_a, bf_s, denom
-
-    def ode_rhs(self, x, y):
-        dy1 = y[1, :]
-        bf_c, bf_a, bf_s, denom = self.bfactors(y)
-        n_sol = self.n_s_0 * bf_s / denom
-        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * n_sol / self.n_0
-        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
-        return np.vstack([dy1, dy2])
-
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
-        # Obtain potential and electric field
-        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
-        sol = get_odesol(
-            x_axis,
-            self.ode_rhs,
-            boundary_conditions.func,
-            self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
-
-        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
         n_sol = self.n_s_0 * bf_s / denom
-
-        # Return solution struct
-        ret = prf.SpatialProfilesSolution(
-            x=sol.x,
-            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
-            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
-            c_cat=n_cat/1e3/C.N_A,
-            c_an=n_an/1e3/C.N_A,
-            c_sol=n_sol/1e3/C.N_A,
-            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
-            name=self.name)
-        return ret
+        return n_cat, n_an, n_sol
 
 
-class HuangSimple(DoubleLayerModel):
+class HuangSimple(Abrashkin):
     """
     Huang's simplification in 'Cation Overcrowding Effect on the
     Oxygen Evolution Reaction'
     https://doi.org/10.1021/jacsau.1c00315
+
+    Inherits solvent_factor, ode_rhs, and solve from Abrashkin
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, ion_concentration_molar: float,
                        d_cat_m: float,
                        d_an_m: float,
                        eps_r_opt: float = 1):
+        # pylint: disable=super-init-not-called
         """
         ion_concentration_molar:    ion bulk concentration in molar
         d_cat_m:                    cation diameter in meters
@@ -397,53 +372,15 @@ class HuangSimple(DoubleLayerModel):
 
         self.name = 'HuangSimple'
 
-    def bfactors(self, sol_y):
+    def densities(self, sol_y):
         """
-        Compute cation, anion and solvent Boltzmann factors, and the denominator
-        appearing in the expression of the number density profile.
+        Compute cation, anion and solvent densities.
         """
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
-
-        bf_s = np.zeros(sol_y[1, :].shape)
-        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
-        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
-        bf_s[~select] = 1
-
+        bf_s = self.solvent_factor(sol_y[1, :])
         denom = (1 - 2*self.chi)*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
-        return bf_c, bf_a, bf_s, denom
-
-    def ode_rhs(self, x, y):
-        dy1 = y[1, :]
-        bf_c, bf_a, bf_s, denom = self.bfactors(y)
-        n_sol = self.n_s_0 * bf_s / denom
-        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * n_sol / self.n_0
-        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
-        return np.vstack([dy1, dy2])
-
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
-        # Obtain potential and electric field
-        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
-        sol = get_odesol(
-            x_axis,
-            self.ode_rhs,
-            boundary_conditions.func,
-            self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
-
-        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
         n_sol = self.n_s_0 * bf_s / denom
-
-        # Return solution struct
-        ret = prf.SpatialProfilesSolution(
-            x=sol.x,
-            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
-            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
-            c_cat=n_cat/1e3/C.N_A,
-            c_an=n_an/1e3/C.N_A,
-            c_sol=n_sol/1e3/C.N_A,
-            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
-            name=self.name)
-        return ret
+        return n_cat, n_an, n_sol
