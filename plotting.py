@@ -22,8 +22,9 @@ def plot_solution(sol: prf.SpatialProfilesSolution, xmin: float, xmax: float, lo
 
     if plot_water and not logscale:
         waterax = ax[1].twinx()
-        ln3=waterax.plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent sites')
+        ln3=waterax.plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent')
         waterax.set_ylim([0, np.max(sol.c_an+sol.c_cat+sol.c_sol)+0.1])
+        waterax.set_ylabel(r'$c_\mathrm{sol}$ [M]')
         # ln3=ax[1].plot(sol.x, sol.c_sol, '-', color='gray', label='Solvent sites')
         # ax[1].plot(sol.x, sol.c_an+sol.c_cat+sol.c_sol, '--', color='tab:green')
         lns = ln1+ln2+ln3

@@ -262,3 +262,188 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
             eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
             name=self.name)
         return ret
+
+
+class Huang(DoubleLayerModel):
+    """
+    Huang, Chen and Eikerling's extension of Abrashkin's model
+    to take into account different solvent molecule and ion sizes.
+    https://doi.org/10.1021/acs.jctc.1c00098
+    """
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self, ion_concentration_molar: float,
+                       d_cat_m: float,
+                       d_an_m: float,
+                       d_sol_m: float,
+                       eps_r_opt: float = 1):
+        """
+        ion_concentration_molar:    ion bulk concentration in molar
+        d_cat_m:                    cation diameter in meters
+        d_an_m:                     anion diameter in meters
+        d_sol_m:                    solvent molecule diameter in meters
+        eps_r_opt:                  optical/background relative permittivity, default: 1
+        """
+        self.c_0 = ion_concentration_molar
+        self.n_0 = self.c_0 * 1e3 * C.N_A
+        self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
+        self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
+                                   (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
+        self.a_m = 0.5e-10 # roughly Bohr radius
+
+        self.gamma_c = (d_cat_m / self.a_m) ** 3
+        self.gamma_a = (d_an_m / self.a_m) ** 3
+        self.gamma_s = (d_sol_m / self.a_m) ** 3
+
+        self.chi = self.n_0 * self.a_m ** 3
+        self.chi_s = self.n_s_0 * self.a_m ** 3
+        self.chi_v = 1 - self.gamma_s*self.chi_s - self.gamma_c*self.chi - self.gamma_a*self.chi
+
+        self.eps_r_opt = eps_r_opt
+
+        # Computing the dipole moment p and the dimensionless ptilde
+        p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.n_s_0)
+        self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
+
+        self.name = 'Huang'
+
+    def bfactors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors, and the denominator
+        appearing in the expression of the number density profile.
+        """
+        bf_c = np.exp(-sol_y[0, :])
+        bf_a = np.exp(+sol_y[0, :])
+
+        bf_s = np.zeros(sol_y[1, :].shape)
+        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
+        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
+        bf_s[~select] = 1
+
+        denom = self.chi_v + self.gamma_s*self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
+        return bf_c, bf_a, bf_s, denom
+
+    def ode_rhs(self, x, y):
+        dy1 = y[1, :]
+        bf_c, bf_a, bf_s, denom = self.bfactors(y)
+        n_sol = self.n_s_0 * bf_s / denom
+        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * n_sol / self.n_0
+        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+        return np.vstack([dy1, dy2])
+
+    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+        # Obtain potential and electric field
+        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
+        sol = get_odesol(
+            x_axis,
+            self.ode_rhs,
+            boundary_conditions.func,
+            self.name,
+            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+
+        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
+        n_cat = self.n_0 * bf_c / denom
+        n_an  = self.n_0 * bf_a / denom
+        n_sol = self.n_s_0 * bf_s / denom
+
+        # Return solution struct
+        ret = prf.SpatialProfilesSolution(
+            x=sol.x,
+            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
+            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
+            c_cat=n_cat/1e3/C.N_A,
+            c_an=n_an/1e3/C.N_A,
+            c_sol=n_sol/1e3/C.N_A,
+            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
+            name=self.name)
+        return ret
+
+
+class HuangSimple(DoubleLayerModel):
+    """
+    Huang's simplification in 'Cation Overcrowding Effect on the
+    Oxygen Evolution Reaction'
+    https://doi.org/10.1021/jacsau.1c00315
+    """
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self, ion_concentration_molar: float,
+                       d_cat_m: float,
+                       d_an_m: float,
+                       eps_r_opt: float = 1):
+        """
+        ion_concentration_molar:    ion bulk concentration in molar
+        d_cat_m:                    cation diameter in meters
+        d_an_m:                     anion diameter in meters
+        d_sol_m:                    solvent molecule diameter in meters
+        eps_r_opt:                  optical/background relative permittivity, default: 1
+        """
+        self.c_0 = ion_concentration_molar
+        self.n_0 = self.c_0 * 1e3 * C.N_A
+        self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
+        self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
+                                   (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
+
+        self.n_max = self.n_s_0 + 2 * self.n_0
+        self.a_m = (1/self.n_max)**(1/3)
+
+        self.gamma_c = (d_cat_m / self.a_m) ** 3
+        self.gamma_a = (d_an_m / self.a_m) ** 3
+        self.chi = self.n_0 * self.a_m ** 3
+
+        self.eps_r_opt = eps_r_opt
+
+        # Computing the dipole moment p and the dimensionless ptilde
+        p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.n_s_0)
+        self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
+
+        self.name = 'HuangSimple'
+
+    def bfactors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors, and the denominator
+        appearing in the expression of the number density profile.
+        """
+        bf_c = np.exp(-sol_y[0, :])
+        bf_a = np.exp(+sol_y[0, :])
+
+        bf_s = np.zeros(sol_y[1, :].shape)
+        select = np.abs(self.p_tilde * sol_y[1, :]) > 1e-9
+        bf_s[select] = np.sinh(self.p_tilde * sol_y[1, :][select])/(self.p_tilde * sol_y[1, :][select])
+        bf_s[~select] = 1
+
+        denom = (1 - 2*self.chi)*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
+        return bf_c, bf_a, bf_s, denom
+
+    def ode_rhs(self, x, y):
+        dy1 = y[1, :]
+        bf_c, bf_a, bf_s, denom = self.bfactors(y)
+        n_sol = self.n_s_0 * bf_s / denom
+        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * n_sol / self.n_0
+        dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
+        return np.vstack([dy1, dy2])
+
+    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+        # Obtain potential and electric field
+        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
+        sol = get_odesol(
+            x_axis,
+            self.ode_rhs,
+            boundary_conditions.func,
+            self.name,
+            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+
+        bf_c, bf_a, bf_s, denom = self.bfactors(sol.y)
+        n_cat = self.n_0 * bf_c / denom
+        n_an  = self.n_0 * bf_a / denom
+        n_sol = self.n_s_0 * bf_s / denom
+
+        # Return solution struct
+        ret = prf.SpatialProfilesSolution(
+            x=sol.x,
+            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
+            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
+            c_cat=n_cat/1e3/C.N_A,
+            c_an=n_an/1e3/C.N_A,
+            c_sol=n_sol/1e3/C.N_A,
+            eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
+            name=self.name)
+        return ret
