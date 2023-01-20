@@ -233,8 +233,6 @@ class AbrashkinAndelmanOrland(DoubleLayerModel):
         dy1 = y[1, :]
         bf_c, bf_a, bf_s, denom = self.bfactors(y)
         H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/bf_s**2) * (1/self.chi - (bf_c + bf_a)/denom)
-        if np.min(1/self.chi - (bf_c + bf_a)/denom) < 0:
-            print("problem!")
         dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (bf_c - bf_a)/denom * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
