@@ -95,9 +95,9 @@ class DoubleLayerModel(ABC):
         """
 
 
-class GuyChapman(DoubleLayerModel):
+class GouyChapman(DoubleLayerModel):
     """
-    Guy-Chapman model, treating ions as point particles obeying Boltzmann statistics.
+    Gouy-Chapman model, treating ions as point particles obeying Boltzmann statistics.
     See for example Schmickler & Santos' Interfacial Electrochemistry.
     """
 
@@ -106,7 +106,7 @@ class GuyChapman(DoubleLayerModel):
         self.n_0 = self.c_0 * 1e3 * C.N_A
         self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
-        self.name = 'Guy-Chapman'
+        self.name = 'Gouy-Chapman'
 
     def ode_rhs(self, x, y):
         dy1 = y[1, :]
