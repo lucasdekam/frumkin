@@ -2,7 +2,6 @@
 Plotting tools for double-layer models
 """
 
-from typing import Union
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
