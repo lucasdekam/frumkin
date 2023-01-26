@@ -28,7 +28,7 @@ def get_x_axis_nm(xmax_nm, n_points):
     Get a logarithmically spaced x-axis, fine mesh close to electrode
     """
     expmax = np.log10(xmax_nm)
-    x_nm = np.logspace(-3, expmax, n_points) - 1e-3
+    x_nm = np.logspace(-9, expmax, n_points) - 1e-9
     return x_nm
 
 

@@ -89,7 +89,10 @@ class DoubleLayerModel(ABC):
         """
 
     @abstractmethod
-    def solve(self, x_axis_nm, boundary_conditions):
+    def solve(self,
+            x_axis_nm: np.ndarray,
+            boundary_conditions: bc.BoundaryConditions,
+            force_recalculation=True):
         """
         Solve the ODE on the specified geometry with specified boundary conditions
         """
@@ -100,7 +103,6 @@ class GouyChapman(DoubleLayerModel):
     Gouy-Chapman model, treating ions as point particles obeying Boltzmann statistics.
     See for example Schmickler & Santos' Interfacial Electrochemistry.
     """
-
     def __init__(self, ion_concentration_molar: float):
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
@@ -113,7 +115,10 @@ class GouyChapman(DoubleLayerModel):
         dy2 = np.sinh(y[0, :])
         return np.vstack([dy1, dy2])
 
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+    def solve(self,
+            x_axis_nm: np.ndarray,
+            boundary_conditions: bc.BoundaryConditions,
+            force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -121,7 +126,8 @@ class GouyChapman(DoubleLayerModel):
             self.ode_rhs,
             boundary_conditions.func,
             self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}',
+            force_recalculation=force_recalculation)
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
@@ -156,7 +162,10 @@ class Borukhov(DoubleLayerModel):
         dy2 = np.sinh(y[0, :]) / (1 - self.chi_0 + self.chi_0 * np.cosh(y[0, :]))
         return np.vstack([dy1, dy2])
 
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+    def solve(self,
+            x_axis_nm: np.ndarray,
+            boundary_conditions: bc.BoundaryConditions,
+            force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -164,7 +173,8 @@ class Borukhov(DoubleLayerModel):
             self.ode_rhs,
             boundary_conditions.func,
             self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}',
+            force_recalculation=force_recalculation)
 
         bf_c = np.exp(-sol.y[0, :])
         bf_a = np.exp(sol.y[0, :])
@@ -249,7 +259,10 @@ class Abrashkin(DoubleLayerModel):
         dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * (n_cat - n_an)/self.n_0 * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+    def solve(self,
+            x_axis_nm: np.ndarray,
+            boundary_conditions: bc.BoundaryConditions,
+            force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -257,7 +270,8 @@ class Abrashkin(DoubleLayerModel):
             self.ode_rhs,
             boundary_conditions.func,
             self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}',
+            force_recalculation=force_recalculation)
 
         n_cat, n_an, n_sol = self.densities(sol.y)
 
@@ -387,7 +401,7 @@ class HuangSimple(Abrashkin):
         denom = (1 - 2*self.chi)*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
-        n_sol = self.n_s_0 * bf_s / denom
+        n_sol = self.n_max - n_cat - n_an # weird!!!
         return n_cat, n_an, n_sol
 
 
@@ -508,7 +522,10 @@ class Multispecies(DoubleLayerModel):
         dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * sum(rho_list)/self.ionic_str * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
-    def solve(self, x_axis_nm: np.ndarray, boundary_conditions: bc.BoundaryConditions):
+    def solve(self,
+            x_axis_nm: np.ndarray,
+            boundary_conditions: bc.BoundaryConditions,
+            force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -516,7 +533,8 @@ class Multispecies(DoubleLayerModel):
             self.ode_rhs,
             boundary_conditions.func,
             self.name,
-            f'c0_{self.ionic_str/1e3/C.N_A:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
+            f'c0_{self.ionic_str/1e3/C.N_A:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}',
+            force_recalculation=force_recalculation)
 
         denom = self.density_denominator(sol.y)
         c_dict = self.concentration_dict(sol.y, denom)
