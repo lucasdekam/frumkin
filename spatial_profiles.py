@@ -7,21 +7,18 @@ import numpy as np
 @dataclass
 class SpatialProfilesSolution:
     """
-    Data class to store double layer model solution data
+    Dataclass to store double-layer model solution data
     x: position, nm
     phi: potential, V
     efield: electric field, V/m
-    c_cat: cation concentration, M
-    c_an: anion concentration, M
-    c_sol: solvent concentration, M
+    c_dict: dict of concentration profiles of form {'name of species': np.ndarray}
     eps: relative permittivity
+    name: name of the model
     """
     x:      np.ndarray
     phi:    np.ndarray
     efield: np.ndarray
-    c_cat:  np.ndarray
-    c_an:   np.ndarray
-    c_sol:  np.ndarray
+    c_dict: dict
     eps:    np.ndarray
     name:   str
 

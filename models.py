@@ -13,7 +13,7 @@ import boundary_conditions as bc
 import spatial_profiles as prf
 
 
-def get_odesol(x_axis, odefunc, boundary_condition, model_name, spec_string, verbose=True, force_recalculation=True):
+def get_odesol(x_axis, ode_rhs, boundary_condition, model_name, spec_string, verbose=True, force_recalculation=True):
     """
     Solve the ODE system or load the solution if there is one already
     """
@@ -31,7 +31,7 @@ def get_odesol(x_axis, odefunc, boundary_condition, model_name, spec_string, ver
     sol = None
     if pickle_name not in os.listdir(folder_path) or force_recalculation:
         sol = solve_bvp(
-            odefunc,
+            ode_rhs,
             boundary_condition,
             x_axis,
             y,
@@ -125,12 +125,13 @@ class GouyChapman(DoubleLayerModel):
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
-            x=sol.x,
+            x=sol.x / self.kappa_debye * 1e9,
             phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
             efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
-            c_cat=self.c_0 * np.exp(-sol.y[0, :]),
-            c_an=self.c_0 * np.exp(sol.y[0, :]),
-            c_sol=np.zeros(sol.x.shape),
+            c_dict={
+                'Cations': self.c_0 * np.exp(-sol.y[0, :]),
+                'Anions': self.c_0 * np.exp(sol.y[0, :]),
+                'Solvent': np.zeros(sol.x.shape)},
             eps=np.ones(sol.x.shape) * C.EPS_R_WATER,
             name=self.name)
         return ret
@@ -171,12 +172,14 @@ class Borukhov(DoubleLayerModel):
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
-            x=sol.x,
+            x=sol.x / self.kappa_debye * 1e9,
             phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
             efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
-            c_cat=self.c_0 * bf_c / denom,
-            c_an=self.c_0 * bf_a / denom,
-            c_sol=np.zeros(sol.x.shape),
+            c_dict={
+                'Cations': self.c_0 * bf_c / denom,
+                'Anions': self.c_0 * bf_a / denom,
+                'Solvent': np.zeros(sol.x.shape)
+            },
             eps=np.ones(sol.x.shape) * C.EPS_R_WATER,
             name=self.name)
         return ret
@@ -260,12 +263,14 @@ class Abrashkin(DoubleLayerModel):
 
         # Return solution struct
         ret = prf.SpatialProfilesSolution(
-            x=sol.x,
+            x=sol.x / self.kappa_debye * 1e9,
             phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
             efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
-            c_cat=n_cat/1e3/C.N_A,
-            c_an=n_an/1e3/C.N_A,
-            c_sol=n_sol/1e3/C.N_A,
+            c_dict={
+                'Cations': n_cat/1e3/C.N_A,
+                'Anions': n_an/1e3/C.N_A,
+                'Solvent': n_sol/1e3/C.N_A
+            },
             eps=rel_permittivity(self.eps_r_opt, self.n_0, n_sol, self.p_tilde, sol.y[1, :]),
             name=self.name)
         return ret
@@ -393,13 +398,15 @@ class Species:
     """
     def __init__(self, concentration_molar: float,
                        diameter_m: float,
-                       charge: float) -> None:
+                       charge: float,
+                       name: str) -> None:
         self.n_0 = concentration_molar * 1e3 * C.N_A
         self.charge = charge
         self.chi = self.n_0 * C.LATTICE_SPACING ** 3
         self.gamma = (diameter_m / C.LATTICE_SPACING) ** 3
+        self.name = name
 
-    def boltzmann_factor(self, y_0):
+    def bfac(self, y_0):
         """
         Return the Boltzmann factor, depending on the charge and the
         electric potential.
@@ -412,10 +419,10 @@ class Solvent(Species):
     """
     Special solvent species class
     """
-    def __init__(self, diameter_m: float) -> None:
-        super().__init__(C.C_WATER_BULK, diameter_m, 0)
+    def __init__(self, diameter_m: float, name: str) -> None:
+        super().__init__(C.C_WATER_BULK, diameter_m, 0, name)
 
-    def boltzmann_factor(self, p_tilde: float, y_1: np.ndarray):
+    def bfac(self, p_tilde: float, y_1: np.ndarray):
         """
         Compute solvent Boltzmann factor.
         p_tilde: dimensionless dipole moment
@@ -457,25 +464,47 @@ class Multispecies(DoubleLayerModel):
 
         self.name = 'Multispecies'
 
-    def densities(self, sol_y):
+    def density_denominator(self, sol_y):
         """
-        Compute cation, anion and solvent densities.
+        Compute the denominator appearing in concentration or density expressions:
+        chi_v + chi_sol + sum of chi_i
         """
-        bf_s = self.solvent.boltzmann_factor(self.p_tilde, sol_y[1, :])
-        boltzmann_times_gamma = [s.gamma * s.chi * s.boltzmann_factor(sol_y[0, :]) for s in self.species]
-        denom = self.chi_v + self.solvent.gamma * self.solvent.chi * bf_s + sum(boltzmann_times_gamma)
+        boltzmann_times_gamma = [s.gamma * s.chi * s.bfac(sol_y[0, :]) for s in self.species]
+        sol_bfac = self.solvent.bfac(self.p_tilde, sol_y[1, :])
+        denom = self.chi_v + self.solvent.gamma * self.solvent.chi * sol_bfac + sum(boltzmann_times_gamma)
+        return denom
 
-        n_list = [s.n_0 * s.boltzmann_factor(sol_y[0, :])/denom for s in self.species]
-        rho_list = [s.charge * s.n_0 * s.boltzmann_factor(sol_y[0, :])/denom for s in self.species]
-        n_sol = self.solvent.n_0 * bf_s / denom
-        return n_list, rho_list, n_sol
+    def solvent_density(self, sol_y, denom):
+        """
+        Compute the number density of solvent molecules
+        """
+        return self.solvent.n_0 * self.solvent.bfac(self.p_tilde, sol_y[1, :]) / denom
+
+    def concentration_dict(self, sol_y, denom):
+        """
+        Compute concentration profiles of the different species and the solvent, and return
+        those as a dict.
+        """
+        c_dict = {s.name: s.n_0 * s.bfac(sol_y[0, :])/denom/1e3/C.N_A for s in self.species}
+        c_dict['Solvent'] = self.solvent_density(sol_y, denom)/1e3/C.N_A
+        return c_dict
+
+    def charge_density_list(self, sol_y, denom):
+        """
+        Returns a list of the charge densities of all (charged) species, in units of
+        the elementary charge C.E_0.
+        """
+        rho_list = [s.charge * s.n_0 * s.bfac(sol_y[0, :])/denom for s in self.species]
+        return rho_list
 
     def ode_rhs(self, x, y):
         dy1 = y[1, :]
-        _, rho_list, n_sol = self.densities(y)
-        solfac = self.solvent.boltzmann_factor(self.p_tilde, y[1, :])
+        denom = self.density_denominator(y)
+        rho_list = self.charge_density_list(y, denom)
+        n_sol = self.solvent_density(y, denom)
+        sol_bfac = self.solvent.bfac(self.p_tilde, y[1, :])
 
-        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/solfac**2) * n_sol/self.ionic_str
+        H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/sol_bfac**2) * n_sol/self.ionic_str
         dy2 = - 1/2 * (C.EPS_R_WATER/self.eps_r_opt) * sum(rho_list)/self.ionic_str * y[1, :]**2 / (y[1, :]**2 + H + 1e-60)
         return np.vstack([dy1, dy2])
 
@@ -489,6 +518,21 @@ class Multispecies(DoubleLayerModel):
             self.name,
             f'c0_{self.ionic_str/1e3/C.N_A:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_{boundary_conditions.get_name()}')
 
-        n_list, _, n_sol = self.densities(sol.y)
+        denom = self.density_denominator(sol.y)
+        c_dict = self.concentration_dict(sol.y, denom)
+        eps = rel_permittivity(
+            self.eps_r_opt,
+            self.ionic_str,
+            self.solvent_density(sol.y, denom),
+            self.p_tilde,
+            sol.y[1, :])
 
-        return sol.x, sol.y[0, :] / (C.BETA * C.Z * C.E_0), [n/1e3/C.N_A for n in n_list], rel_permittivity(self.eps_r_opt, self.ionic_str, n_sol, self.p_tilde, sol.y[1, :])
+        ret = prf.SpatialProfilesSolution(
+            x=sol.x / self.kappa_debye * 1e9,
+            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
+            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
+            c_dict=c_dict,
+            eps=eps,
+            name=self.name)
+
+        return ret
