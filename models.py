@@ -309,23 +309,22 @@ class Huang(Abrashkin):
         ion_concentration_molar:    ion bulk concentration in molar
         d_cat_m:                    cation diameter in meters
         d_an_m:                     anion diameter in meters
-        d_sol_m:                    solvent molecule diameter in meters
+        d_sol_m:                    solvent molecule diameter in meters; lattice spacing
         eps_r_opt:                  optical/background relative permittivity, default: 1
         """
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
         self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
+        self.n_max = 1 / d_sol_m ** 3
         self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
-        self.a_m = C.LATTICE_SPACING # roughly Bohr radius
 
-        self.gamma_c = (d_cat_m / self.a_m) ** 3
-        self.gamma_a = (d_an_m / self.a_m) ** 3
-        self.gamma_s = (d_sol_m / self.a_m) ** 3
+        self.gamma_c = (d_cat_m / d_sol_m) ** 3
+        self.gamma_a = (d_an_m / d_sol_m) ** 3
 
-        self.chi = self.n_0 * self.a_m ** 3
-        self.chi_s = self.n_s_0 * self.a_m ** 3
-        self.chi_v = 1 - self.gamma_s*self.chi_s - self.gamma_c*self.chi - self.gamma_a*self.chi
+        self.chi = self.n_0 / self.n_max
+        self.chi_s = self.n_s_0 / self.n_max
+        self.chi_v = 1 - self.chi_s - self.gamma_c*self.chi - self.gamma_a*self.chi
 
         self.eps_r_opt = eps_r_opt
 
@@ -342,10 +341,10 @@ class Huang(Abrashkin):
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
         bf_s = self.solvent_factor(sol_y[1, :])
-        denom = self.chi_v + self.gamma_s*self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
-        n_cat = self.n_0 * bf_c / denom
-        n_an  = self.n_0 * bf_a / denom
-        n_sol = self.n_s_0 * bf_s / denom
+        denom = self.chi_v + self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
+        n_cat = self.n_max * self.chi * bf_c / denom
+        n_an  = self.n_max * self.chi * bf_a / denom
+        n_sol = self.n_max * self.chi_s *  bf_s / denom
         return n_cat, n_an, n_sol
 
 
