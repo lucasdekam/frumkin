@@ -314,13 +314,13 @@ class Huang(Abrashkin):
         """
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
-        self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
         self.n_max = 1 / d_sol_m ** 3
         self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
 
         self.gamma_c = (d_cat_m / d_sol_m) ** 3
         self.gamma_a = (d_an_m / d_sol_m) ** 3
+        self.n_s_0 = self.n_max - self.gamma_c * self.n_0 - self.gamma_a * self.n_0
 
         self.chi = self.n_0 / self.n_max
         self.chi_s = self.n_s_0 / self.n_max
@@ -344,7 +344,7 @@ class Huang(Abrashkin):
         denom = self.chi_v + self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
         n_cat = self.n_max * self.chi * bf_c / denom
         n_an  = self.n_max * self.chi * bf_a / denom
-        n_sol = self.n_max * self.chi_s *  bf_s / denom
+        n_sol = self.n_max - n_cat - n_an  # weird!
         return n_cat, n_an, n_sol
 
 
@@ -375,7 +375,7 @@ class HuangSimple(Abrashkin):
         self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
 
-        self.n_max = self.n_s_0 + 2 * self.n_0
+        self.n_max = self.n_s_0 + 2 * self.n_0 ## weird...
         self.a_m = (1/self.n_max)**(1/3)
 
         self.gamma_c = (d_cat_m / self.a_m) ** 3
@@ -413,11 +413,14 @@ class Species:
                        diameter_m: float,
                        charge: float,
                        name: str) -> None:
+        self.c_0 = concentration_molar
         self.n_0 = concentration_molar * 1e3 * C.N_A
         self.charge = charge
-        self.chi = self.n_0 * C.LATTICE_SPACING ** 3
-        self.gamma = (diameter_m / C.LATTICE_SPACING) ** 3
+        self.diameter_m = diameter_m
         self.name = name
+
+        self.chi = None
+        self.gamma = 1
 
     def bfac(self, y_0):
         """
@@ -433,7 +436,9 @@ class Solvent(Species):
     Special solvent species class
     """
     def __init__(self, diameter_m: float, name: str) -> None:
-        super().__init__(C.C_WATER_BULK, diameter_m, 0, name)
+        n_max = 1/diameter_m**3
+        c_max = n_max/1e3/C.N_A
+        super().__init__(c_max, diameter_m, 0, name)
 
     def bfac(self, p_tilde: float, y_1: np.ndarray):
         """
@@ -458,8 +463,8 @@ class Multispecies(DoubleLayerModel):
         self.solvent = solvent
         self.eps_r_opt = eps_r_opt
 
-        charge_densities = [s.charge * s.n_0 for s in self.species]
-        if sum(charge_densities) != 0:
+        charge_densities = [s.charge * s.c_0 for s in self.species]
+        if sum(charge_densities) > 1e-9:
             raise ValueError('No charge neutrality')
 
         ionic_densities = [s.charge**2 * s.n_0 for s in self.species]
@@ -467,9 +472,15 @@ class Multispecies(DoubleLayerModel):
         self.kappa_debye = np.sqrt(2*self.ionic_str*C.E_0**2 /
                                    (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
 
-        self.chi_v = 1 - self.solvent.gamma * self.solvent.chi
-        for s in self.species: #pylint: disable=invalid-name
-            self.chi_v -= s.gamma * s.chi
+        self.n_max = 1/self.solvent.diameter_m**3  ## lattice spacing: d_s
+
+        for species in self.species:
+            species.chi = species.n_0 / self.n_max
+            species.gamma = (species.diameter_m / self.solvent.diameter_m) ** 3
+            solvent.n_0 -= species.gamma * species.n_0
+
+        solvent.c_0 = solvent.n_0/1e3/C.N_A
+        solvent.chi = self.solvent.n_0 / self.n_max
 
         # Computing the dipole moment p and the dimensionless ptilde
         p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.solvent.n_0)
@@ -482,16 +493,10 @@ class Multispecies(DoubleLayerModel):
         Compute the denominator appearing in concentration or density expressions:
         chi_v + chi_sol + sum of chi_i
         """
-        boltzmann_times_gamma = [s.gamma * s.chi * s.bfac(sol_y[0, :]) for s in self.species]
+        boltzmann_chi_gamma = [s.gamma * s.chi * s.bfac(sol_y[0, :]) for s in self.species]
         sol_bfac = self.solvent.bfac(self.p_tilde, sol_y[1, :])
-        denom = self.chi_v + self.solvent.gamma * self.solvent.chi * sol_bfac + sum(boltzmann_times_gamma)
+        denom = self.solvent.gamma * self.solvent.chi * sol_bfac + sum(boltzmann_chi_gamma)
         return denom
-
-    def solvent_density(self, sol_y, denom):
-        """
-        Compute the number density of solvent molecules
-        """
-        return self.solvent.n_0 * self.solvent.bfac(self.p_tilde, sol_y[1, :]) / denom
 
     def concentration_dict(self, sol_y, denom):
         """
@@ -499,7 +504,8 @@ class Multispecies(DoubleLayerModel):
         those as a dict.
         """
         c_dict = {s.name: s.n_0 * s.bfac(sol_y[0, :])/denom/1e3/C.N_A for s in self.species}
-        c_dict['Solvent'] = self.solvent_density(sol_y, denom)/1e3/C.N_A
+        c_list = [value for key, value in c_dict.items()]
+        c_dict['Solvent'] = self.n_max/1e3/C.N_A - sum(c_list) ## Weird!!!
         return c_dict
 
     def charge_density_list(self, sol_y, denom):
@@ -514,7 +520,7 @@ class Multispecies(DoubleLayerModel):
         dy1 = y[1, :]
         denom = self.density_denominator(y)
         rho_list = self.charge_density_list(y, denom)
-        n_sol = self.solvent_density(y, denom)
+        n_sol = self.concentration_dict(y, denom)['Solvent']*1e3*C.N_A
         sol_bfac = self.solvent.bfac(self.p_tilde, y[1, :])
 
         H = 1/2 * C.EPS_R_WATER/self.eps_r_opt * (1-1/sol_bfac**2) * n_sol/self.ionic_str
@@ -540,7 +546,7 @@ class Multispecies(DoubleLayerModel):
         eps = rel_permittivity(
             self.eps_r_opt,
             self.ionic_str,
-            self.solvent_density(sol.y, denom),
+            c_dict['Solvent']*1e3*C.N_A,
             self.p_tilde,
             sol.y[1, :])
 
