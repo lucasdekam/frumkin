@@ -292,8 +292,8 @@ class Abrashkin(DoubleLayerModel):
 
 class Huang(Abrashkin):
     """
-    Huang, Chen and Eikerling's extension of Abrashkin's model
-    to take into account different solvent molecule and ion sizes.
+    Adapation of Huang, Chen and Eikerling's extension of Abrashkin's
+    model to take into account different solvent molecule and ion sizes.
     https://doi.org/10.1021/acs.jctc.1c00098
 
     Inherits solvent_factor, ode_rhs, and solve from Abrashkin
@@ -324,7 +324,6 @@ class Huang(Abrashkin):
 
         self.chi = self.n_0 / self.n_max
         self.chi_s = self.n_s_0 / self.n_max
-        self.chi_v = 1 - self.chi_s - self.gamma_c*self.chi - self.gamma_a*self.chi
 
         self.eps_r_opt = eps_r_opt
 
@@ -341,7 +340,7 @@ class Huang(Abrashkin):
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
         bf_s = self.solvent_factor(sol_y[1, :])
-        denom = self.chi_v + self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
+        denom = self.chi_s*bf_s + self.gamma_c*self.chi*bf_c + self.gamma_a*self.chi*bf_a
         n_cat = self.n_max * self.chi * bf_c / denom
         n_an  = self.n_max * self.chi * bf_a / denom
         n_sol = self.n_max - n_cat - n_an  # weird!
@@ -486,7 +485,7 @@ class Multispecies(DoubleLayerModel):
         p_water = np.sqrt(3 * C.K_B * C.T * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / self.solvent.n_0)
         self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
 
-        self.name = 'Multispecies'
+        self.name = f'Multispecies {self.ionic_str/1e3/C.N_A:.4f}'
 
     def density_denominator(self, sol_y):
         """

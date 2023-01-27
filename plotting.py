@@ -6,8 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import spatial_profiles as prf
-import potential_sweeps as swp
-
 
 def plot_phi(ax: Axes, name: str, x: np.ndarray, phi: np.ndarray, fmt='-', color='black'):
     """
@@ -130,7 +128,8 @@ def plot_potential_sweep(sols: list):
     """
     Plot charge and differential capacitance
     """
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(14,6), sharex=True)
+    # pylint: disable=invalid-name
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4), sharex=True)
 
     for sol in sols:
         ax[0].plot(sol.phi, sol.charge, label=sol.name)
@@ -141,7 +140,7 @@ def plot_potential_sweep(sols: list):
 
     for sol in sols:
         ax[1].plot(sol.phi, sol.cap, label=sol.name)
-    ax[1].set_ylabel('Capacitance [$\mu$F/cm$^2$]')
+    ax[1].set_ylabel(r'Capacitance [$\mu$F/cm$^2$]')
     ax[1].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[1].legend()
     ax[1].set_ylim([0, 150])
