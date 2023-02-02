@@ -94,3 +94,21 @@ def numerical(
 
     cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2
     return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name=model.name)
+
+
+def ph_sweep(p_h_array: np.ndarray, modelclass, args, force_recalculation: bool=False):
+    """
+    Numerical solution to a pH sweep
+    """
+    x_axis_nm = S.get_x_axis_nm(100, 1000)
+    chg = []
+    phi = []
+
+    for p_h in p_h_array:
+        model = modelclass(p_h, *args)
+        sol = model.solve_ins(x_axis_nm, verbose=0, force_recalculation=force_recalculation)
+        chg.append(sol.efield[0] * C.EPS_0 * sol.eps[0])
+        phi.append(sol.phi[0])
+
+    cap = np.gradient(chg, edge_order=2)/np.gradient(phi) * 1e2
+    return PotentialSweepSolution(phi=np.array(phi), charge=np.array(chg), cap=cap, name='Insulator')

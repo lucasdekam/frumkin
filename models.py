@@ -558,3 +558,66 @@ class Multispecies(DoubleLayerModel):
             name=self.name)
 
         return ret
+
+
+class InsulatorBorukhov(Borukhov):
+    """
+    Class for modeling insulators
+    """
+    def __init__(self, p_h: float, support_molar: float, a_m: float):
+        self.p_h_bulk = p_h
+        self.p_oh_bulk = C.PKW - p_h
+        self.proton_bulk_molar = 10 ** (-self.p_h_bulk)
+        self.oh_bulk_molar = 10 ** (-self.p_oh_bulk)
+        super().__init__(support_molar + self.proton_bulk_molar + self.oh_bulk_molar, a_m)
+
+    def insulator_boundary_condition(self, ya, yb):
+        """
+        Robin boundary condition for the insulator
+        """
+        h_surf = self.proton_bulk_molar * np.exp(-ya[0]) / (1 - self.chi_0 + self.chi_0 * np.cosh(ya[0]))
+        h_surf = max(h_surf.squeeze(), 0)
+
+        # left = 2 * ya[1] - C.N_SITES_SILICA * self.kappa_debye *C.K_SILICA_A / (C.K_SILICA_A + h_surf) / self.n_0
+        left = 2 * self.n_0 / self.kappa_debye * ya[1] \
+            + C.N_SITES_SILICA * (h_surf**2 - C.K_SILICA_A * C.K_SILICA_B) \
+            / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * h_surf + h_surf ** 2)
+        right = yb[0]
+
+        return np.array([left, right])
+
+    def solve_ins(self,
+            x_axis_nm: np.ndarray,
+            verbose=2,
+            force_recalculation=True):
+        """
+        Solve using insulator BC
+        """
+        # Obtain potential and electric field
+        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
+        sol = get_odesol(
+            x_axis,
+            self.ode_rhs,
+            self.insulator_boundary_condition,
+            self.name,
+            f'ins__c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__ph_{self.p_h_bulk:.2f}',
+            verbose=verbose,
+            force_recalculation=force_recalculation)
+
+        bf_c = np.exp(-sol.y[0, :])
+        bf_a = np.exp(sol.y[0, :])
+        denom = 1 - self.chi_0 + self.chi_0 * np.cosh(sol.y[0, :])
+
+        # Return solution struct
+        ret = prf.SpatialProfilesSolution(
+            x=sol.x / self.kappa_debye * 1e9,
+            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
+            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
+            c_dict={
+                'Cations': self.c_0 * bf_c / denom,
+                'Anions': self.c_0 * bf_a / denom,
+                'Solvent': np.zeros(sol.x.shape)
+            },
+            eps=np.ones(sol.x.shape) * C.EPS_R_WATER,
+            name=self.name)
+        return ret

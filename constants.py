@@ -13,4 +13,6 @@ EPS_R_WATER = 78.5          # relative permittivity of bulk water
 C_WATER_BULK = 55.5         # water bulk concentration, molar
 LATTICE_SPACING = 0.5e-10   # lattice spacing, m
 N_SITES_SILICA = 5e18       # surface site density on silica, /m^2
-K_SILICA = 1e-6             # equilibrium constant silica, molar
+K_SILICA_A = 1e-6           # equilibrium constant silica high pH, molar
+K_SILICA_B = 1e2            # equilibrium constant silica low pH, molar
+PKW = 14                    # -log water constant
