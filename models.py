@@ -39,10 +39,10 @@ def get_odesol(x_axis, ode_rhs, boundary_condition, model_name, spec_string, ver
             verbose=verbose)
         with open(pickle_path, 'wb') as file:
             pickle.dump(sol, file)
-        if verbose:
+        if verbose > 0:
             print(f'ODE problem solved and saved under {pickle_path}.')
     else:
-        if verbose:
+        if verbose > 0:
             print(f'File {pickle_name} found.')
         with open(pickle_path, 'rb') as file:
             sol = pickle.load(file)
@@ -57,8 +57,9 @@ def langevin_x_over_x(x): # pylint: disable=invalid-name
     For small x, the function value is 1/3
     """
     ret = np.zeros(np.atleast_1d(x).shape)
-    ret = (1/np.tanh(x) - 1/x)/x
-    ret[np.abs(x) <= 1e-9] = 1/3
+    select = np.abs(x) > 1e-4
+    ret[select] = (1/np.tanh(x[select]) - 1/x[select])/x[select]
+    ret[~select] = 1/3
     return ret
 
 
@@ -320,7 +321,7 @@ class Huang(Abrashkin):
 
         self.gamma_c = (d_cat_m / d_sol_m) ** 3
         self.gamma_a = (d_an_m / d_sol_m) ** 3
-        self.n_s_0 = self.n_max - self.gamma_c * self.n_0 - self.gamma_a * self.n_0
+        self.n_s_0 = self.n_max - self.n_0 - self.n_0
 
         self.chi = self.n_0 / self.n_max
         self.chi_s = self.n_s_0 / self.n_max
@@ -344,6 +345,7 @@ class Huang(Abrashkin):
         n_cat = self.n_max * self.chi * bf_c / denom
         n_an  = self.n_max * self.chi * bf_a / denom
         n_sol = self.n_max - n_cat - n_an  # weird!
+        # n_sol = self.n_max - self.gamma_c * n_cat - self.gamma_a * n_an
         return n_cat, n_an, n_sol
 
 
@@ -476,7 +478,7 @@ class Multispecies(DoubleLayerModel):
         for species in self.species:
             species.chi = species.n_0 / self.n_max
             species.gamma = (species.diameter_m / self.solvent.diameter_m) ** 3
-            solvent.n_0 -= species.gamma * species.n_0
+            solvent.n_0 -= species.n_0
 
         solvent.c_0 = solvent.n_0/1e3/C.N_A
         solvent.chi = self.solvent.n_0 / self.n_max
