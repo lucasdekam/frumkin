@@ -16,3 +16,4 @@ N_SITES_SILICA = 5e18       # surface site density on silica, /m^2
 K_SILICA_A = 1e-6           # equilibrium constant silica high pH, molar
 K_SILICA_B = 1e2            # equilibrium constant silica low pH, molar
 PKW = 14                    # -log water constant
+N_WATER = 1.33              # refractive index of water

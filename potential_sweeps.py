@@ -8,7 +8,6 @@ import numpy as np
 
 import constants as C
 import models as M
-import boundary_conditions as B
 import spatial_profiles as S
 
 @dataclass
@@ -66,14 +65,14 @@ def borukhov(ion_concentration_molar: float, a_m: float, potential: np.ndarray):
 
 def compute_charge(
         model: M.DoubleLayerModel,
-        boundary_condition: B.BoundaryConditions,
+        phi0: float,
         force_recalculation: bool=False):
     """
     Solve a model for a certain boundary condition with a default x-axis, and
     compute the surface charge.
     """
     x_axis_nm = S.get_x_axis_nm(100, 10000)
-    sol = model.solve(x_axis_nm, boundary_condition, force_recalculation=force_recalculation)
+    sol, _ = model.solve_dirichlet(x_axis_nm, phi0, force_recalculation=force_recalculation)
     return sol.efield[0] * C.EPS_0 * sol.eps[0]
 
 
@@ -84,12 +83,10 @@ def numerical(
     """
     Numerical solution to a potential sweep for a defined double-layer model.
     """
-    boundary_conditions = [B.Dirichlet(p) for p in potential]
-
     with mp.Pool(mp.cpu_count()) as pool:
         chg = pool.starmap(
             compute_charge,
-            [(model, bc, force_recalculation) for bc in boundary_conditions])
+            [(model, phi, force_recalculation) for phi in potential])
         pool.close()
 
     cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2

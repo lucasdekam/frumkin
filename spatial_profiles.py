@@ -15,12 +15,13 @@ class SpatialProfilesSolution:
     eps: relative permittivity
     name: name of the model
     """
-    x:      np.ndarray
-    phi:    np.ndarray
-    efield: np.ndarray
-    c_dict: dict
-    eps:    np.ndarray
-    name:   str
+    x:       np.ndarray
+    phi:     np.ndarray
+    efield:  np.ndarray
+    c_dict:  dict
+    c_sites: np.ndarray
+    eps:     np.ndarray
+    name:    str
 
 
 def get_x_axis_nm(xmax_nm, n_points):
