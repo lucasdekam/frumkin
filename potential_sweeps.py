@@ -72,7 +72,7 @@ def compute_charge(
     compute the surface charge.
     """
     x_axis_nm = S.get_x_axis_nm(100, 10000)
-    sol, _ = model.solve_dirichlet(x_axis_nm, phi0, force_recalculation=force_recalculation)
+    sol = model.solve_dirichlet(x_axis_nm, phi0, force_recalculation=force_recalculation)
     return sol.efield[0] * C.EPS_0 * sol.eps[0]
 
 

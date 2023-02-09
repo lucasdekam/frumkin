@@ -19,7 +19,6 @@ class SpatialProfilesSolution:
     phi:     np.ndarray
     efield:  np.ndarray
     c_dict:  dict
-    c_sites: np.ndarray
     eps:     np.ndarray
     name:    str
 
