@@ -12,7 +12,7 @@ import constants as C
 import spatial_profiles as prf
 
 
-def get_odesol(x_axis, y_initial, ode_rhs, boundary_condition, model_name, spec_string, verbose=True, force_recalculation=True):
+def get_odesol(x_axis, y_initial, ode_rhs, boundary_condition, model_name, spec_string, tol=1e-3, verbose=2, force_recalculation=True):
     """
     Solve the ODE system or load the solution if there is one already
     """
@@ -32,7 +32,7 @@ def get_odesol(x_axis, y_initial, ode_rhs, boundary_condition, model_name, spec_
             boundary_condition,
             x_axis,
             y_initial,
-            # tol=1e-5,
+            tol=tol,
             max_nodes=int(1e8),
             verbose=verbose)
         with open(pickle_path, 'wb') as file:
@@ -141,6 +141,7 @@ class DoubleLayerModel:
     def solve_dirichlet(self,
             x_axis_nm: np.ndarray,
             phi0: float,
+            tol=1e-3,
             force_recalculation=True):
         """
         Solve the ODE on the specified geometry with specified boundary conditions
@@ -164,16 +165,17 @@ class GouyChapman(DoubleLayerModel):
         dy2 = np.sinh(y[0, :])
         return np.vstack([dy1, dy2])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, force_recalculation=True):
+    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
             x_axis,
             initial_guess_dirichlet(x_axis, phi0),
             self.ode_rhs,
-            self.dirichlet,
+            self.dirichlet(phi0),
             self.name,
             f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
+            tol=tol,
             force_recalculation=force_recalculation)
 
         # Return solution struct
@@ -213,7 +215,7 @@ class Borukhov(DoubleLayerModel):
     def dirichlet(self, phi0):
         return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, force_recalculation=True):
+    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -223,6 +225,7 @@ class Borukhov(DoubleLayerModel):
             self.dirichlet(phi0),
             self.name,
             f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
+            tol=tol,
             force_recalculation=force_recalculation)
 
         bf_c = np.exp(-sol.y[0, :])
@@ -251,23 +254,20 @@ class Abrashkin(DoubleLayerModel):
     def __init__(self, ion_concentration_molar: float, alpha_c: float, alpha_a: float, eps_r_opt=C.N_WATER**2):
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
-        self.kappa_debye = np.sqrt(2*self.n_0*(C.Z*C.E_0)**2 /
-                                   (C.EPS_R_WATER*C.EPS_0*C.K_B*C.T))
-        self.n_s_0 = C.C_WATER_BULK * 1e3 * C.N_A
+        self.kappa_debye = np.sqrt(2*C.BETA*self.n_0*(C.Z*C.E_0)**2 /
+                                   (C.EPS_R_WATER*C.EPS_0))
 
         self.alpha_c = alpha_c
         self.alpha_a = alpha_a
-        self.n_max = self.n_s_0 + alpha_c * self.n_0 + alpha_a * self.n_0
+        self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
+        self.n_s_0 = self.n_max - alpha_c * self.n_0 - alpha_a * self.n_0
 
         self.chi = self.n_0 / self.n_max
         self.chi_s = self.n_s_0 / self.n_max
 
-        self.g_1 = (2 + C.N_WATER ** 2) / 3
-        self.g_2 = (2 + C.N_WATER ** 2) / 2
-
         self.eps_r_opt = eps_r_opt
 
-        p_water = np.sqrt(3 * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / (self.g_1 * self.g_2 * C.BETA * self.n_s_0))
+        p_water = np.sqrt(3 * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / (C.BETA * self.n_s_0))
         self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
 
         self.name = f'DPB {self.c_0:.3f}M {alpha_c:.1f}-{alpha_a:.1f}'
@@ -278,7 +278,7 @@ class Abrashkin(DoubleLayerModel):
         """
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
-        bf_s = sinh_x_over_x(self.g_2 * self.p_tilde * sol_y[1, :])
+        bf_s = sinh_x_over_x(self.p_tilde * sol_y[1, :])
         denom = self.chi_s * bf_s + self.alpha_c * self.chi * bf_c + self.alpha_a * self.chi * bf_a
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
@@ -289,15 +289,23 @@ class Abrashkin(DoubleLayerModel):
         dy1 = y[1, :]
         n_cat, n_an, n_sol = self.densities(y)
 
-        numer = 1 + self.g_1 * self.p_tilde * y[1, :] * langevin_x(self.g_2 * self.p_tilde * y[1, :]) * n_sol/self.n_max
+        numer = 1 + self.p_tilde * y[1, :] * langevin_x(self.p_tilde * y[1, :]) * n_sol/self.n_max
         eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-        denom1 = self.g_1 * self.g_2 * self.p_tilde**2 * langevin_x(self.g_2 * self.p_tilde * y[1, :])**2 * (n_cat + n_an)/self.n_0 * n_sol/self.n_max
-        denom2 = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
+        denom1 = self.p_tilde**2 * langevin_x(self.p_tilde * y[1, :])**2 * (n_cat + n_an)/self.n_0/2 * n_sol/self.n_max
+        denom2 = self.p_tilde**2 * n_sol/self.n_0/2 * d_langevin_x(self.p_tilde * y[1, :])
 
-        mulfac = numer / (2 * eps_ratio + denom1 + denom2)
+        mulfac = numer / (eps_ratio + denom1 + denom2)
 
-        dy2 = - (n_cat - n_an)/self.n_0 * mulfac
+        dy2 = - (n_cat - n_an)/self.n_0/2 * mulfac
         return np.vstack([dy1, dy2])
+
+    # def ode_rhs(self, x, y):
+    #     dy1 = y[1, :]
+    #     n_cat, n_an, _ = self.densities(y)
+    #     eps = self.permittivity(y) / C.EPS_R_WATER
+
+    #     dy2 = - (n_cat - n_an)/self.n_0/2 / eps
+    #     return np.vstack([dy1, dy2])
 
     def permittivity(self, sol_y):
         """
@@ -308,10 +316,10 @@ class Abrashkin(DoubleLayerModel):
         sol_y = np.atleast_1d(sol_y).reshape(2, -1)
         _, _, n_sol = self.densities(sol_y)
         return self.eps_r_opt + \
-               1/2 * C.EPS_R_WATER * self.p_tilde**2 * self.g_1 * self.g_2 * n_sol / self.n_0 * \
-               langevin_x_over_x(self.g_2 * self.p_tilde * sol_y[1, :])
+               1/2 * C.EPS_R_WATER * self.p_tilde**2 * n_sol / self.n_0 * \
+               langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, force_recalculation=True):
+    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
         # Obtain potential and electric field
         x_axis = self.kappa_debye * 1e-9 * x_axis_nm
         sol = get_odesol(
@@ -321,6 +329,7 @@ class Abrashkin(DoubleLayerModel):
             self.dirichlet(phi0),
             self.name,
             f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
+            tol=tol,
             force_recalculation=force_recalculation)
 
         n_cat, n_an, n_sol = self.densities(sol.y)
@@ -361,13 +370,13 @@ class HuangSimple(Abrashkin):
         n_sol = self.n_s_0 * np.ones(bf_c.shape)
         return n_cat, n_an, n_sol
 
-    def ode_rhs(self, x, y):
-        dy1 = y[1, :]
-        n_cat, n_an, n_sol = self.densities(y)
+    # def ode_rhs(self, x, y):
+    #     dy1 = y[1, :]
+    #     n_cat, n_an, n_sol = self.densities(y)
 
-        eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-        denom = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
-        mulfac = 1 / (2 * eps_ratio + denom)
+    #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
+    #     denom = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
+    #     mulfac = 1 / (2 * eps_ratio + denom)
 
-        dy2 = - (n_cat - n_an)/self.n_0 * mulfac
-        return np.vstack([dy1, dy2])
+    #     dy2 = - (n_cat - n_an)/self.n_0 * mulfac
+    #     return np.vstack([dy1, dy2])
