@@ -258,20 +258,6 @@ class Abrashkin(DoubleLayerModel):
         """
         return self.kappa_debye * 1e-9 * x_axis_nm
 
-    # def ode_rhs(self, x, y):
-    #     dy1 = y[1, :]
-    #     n_cat, n_an, n_sol = self.densities(y)
-
-    #     numer = 1 + self.p_tilde * y[1, :] * langevin_x(self.p_tilde * y[1, :]) * n_sol/self.n_max
-    #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-    #     denom1 = self.p_tilde**2 * langevin_x(self.p_tilde * y[1, :])**2 * (n_cat + n_an)/self.n_0/2 * n_sol/self.n_max
-    #     denom2 = self.p_tilde**2 * n_sol/self.n_0/2 * d_langevin_x(self.p_tilde * y[1, :])
-
-    #     mulfac = numer / (eps_ratio + denom1 + denom2)
-
-    #     dy2 = - (n_cat - n_an)/self.n_0/2 * mulfac
-    #     return np.vstack([dy1, dy2])
-
     def permittivity(self, sol_y):
         """
         Compute the permittivity using the electric field
@@ -301,44 +287,3 @@ class Abrashkin(DoubleLayerModel):
             name=self.name)
 
         return ret
-
-class Abrashkin2(Abrashkin):
-    def ode_rhs(self, x, y):
-        dy1 = y[1, :]
-        n_cat, n_an, _ = self.densities(y)
-        eps = self.permittivity(y) / C.EPS_R_WATER
-
-        dy2 = - (n_cat - n_an)/self.n_max/2 / eps
-        return np.vstack([dy1, dy2])
-
-
-# class HuangSimple(Abrashkin):
-#     """
-#     Simplified Huang with constant number of solvent molecules
-#     """
-#     def __init__(self, ion_concentration_molar: float, alpha_c: float, alpha_a: float, eps_r_opt=C.N_WATER ** 2):
-#         super().__init__(ion_concentration_molar, alpha_c, alpha_a, eps_r_opt)
-#         self.name = f'{self.c_0:.3f}M {alpha_c:.1f}-{alpha_a:.1f}'
-
-#     def densities(self, sol_y):
-#         """
-#         Compute cation, anion and solvent densities.
-#         """
-#         bf_c = np.exp(-sol_y[0, :])
-#         bf_a = np.exp(+sol_y[0, :])
-#         denom = self.chi_s + self.alpha_c * self.chi * bf_c + self.alpha_a * self.chi * bf_a
-#         n_cat = self.n_0 * bf_c / denom
-#         n_an  = self.n_0 * bf_a / denom
-#         n_sol = self.n_s_0 * np.ones(bf_c.shape)
-#         return n_cat, n_an, n_sol
-
-#     # def ode_rhs(self, x, y):
-#     #     dy1 = y[1, :]
-#     #     n_cat, n_an, n_sol = self.densities(y)
-
-#     #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-#     #     denom = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
-#     #     mulfac = 1 / (2 * eps_ratio + denom)
-
-#     #     dy2 = - (n_cat - n_an)/self.n_0 * mulfac
-#     #     return np.vstack([dy1, dy2])

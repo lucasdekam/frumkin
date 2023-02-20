@@ -2,7 +2,6 @@
 Potential sweep tools for double-layer models
 """
 from dataclasses import dataclass
-import multiprocessing as mp
 
 import numpy as np
 
@@ -73,7 +72,7 @@ def numerical(
     # Find potential closest to PZC
     i_pzc = np.argmin(np.abs(potential)).squeeze()
 
-    x_axis_nm = S.get_x_axis_nm(100, 10000)
+    x_axis_nm = S.get_x_axis_nm(100, 1000)
 
     x_axis = model.get_dimensionless_x_axis(x_axis_nm)
     y_initial = np.zeros((2, x_axis.shape[0]))
