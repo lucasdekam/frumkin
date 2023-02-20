@@ -1,8 +1,6 @@
 """
 Implementation of double-layer models
 """
-import os
-import pickle
 from abc import abstractmethod
 
 import numpy as np
@@ -10,42 +8,6 @@ from scipy.integrate import solve_bvp
 
 import constants as C
 import spatial_profiles as prf
-
-
-def get_odesol(x_axis, y_initial, ode_rhs, boundary_condition, model_name, spec_string, tol=1e-3, verbose=2, force_recalculation=True):
-    """
-    Solve the ODE system or load the solution if there is one already
-    """
-    # Make directory for solutions if there is none existing
-    parent_folder_path = './solutions/'
-    folder_path = os.path.join(parent_folder_path, model_name)
-    if not model_name in os.listdir(parent_folder_path):
-        os.mkdir(folder_path)
-    pickle_name = f'sol_{model_name}_{spec_string}.pkl'
-    pickle_path = os.path.join(folder_path, pickle_name)
-
-    # Solve or load solution
-    sol = None
-    if pickle_name not in os.listdir(folder_path) or force_recalculation:
-        sol = solve_bvp(
-            ode_rhs,
-            boundary_condition,
-            x_axis,
-            y_initial,
-            tol=tol,
-            max_nodes=int(1e8),
-            verbose=verbose)
-        with open(pickle_path, 'wb') as file:
-            pickle.dump(sol, file)
-        if verbose > 0:
-            print(f'ODE problem solved and saved under {pickle_path}.')
-    else:
-        if verbose > 0:
-            print(f'File {pickle_name} found.')
-        with open(pickle_path, 'rb') as file:
-            sol = pickle.load(file)
-
-    return sol
 
 
 def langevin_x_over_x(x): # pylint: disable=invalid-name
@@ -107,16 +69,6 @@ def sinh_x_over_x(x): #pylint: disable=invalid-name
     return ret
 
 
-def initial_guess_dirichlet(x, phi0):
-    """
-    Returns an initial guess for a Dirichlet boundary condition
-    """
-    y_initial = np.zeros((2, x.shape[0]))
-    y_initial[0, :] = C.BETA * C.Z * C.E_0 * phi0 * np.exp(-x)
-    y_initial[1, :] = np.gradient(y_initial[0, :], x)
-    return y_initial
-
-
 class DoubleLayerModel:
     """
     Base class for an ODE. Makes sure that each class
@@ -137,14 +89,29 @@ class DoubleLayerModel:
         """
         return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
 
-    @abstractmethod
-    def solve_dirichlet(self,
-            x_axis_nm: np.ndarray,
+    def odesolve_dirichlet(self,
+            x_axis: np.ndarray,
+            y_initial: np.ndarray,
             phi0: float,
-            tol=1e-3,
-            force_recalculation=True):
+            tol: float=1e-3):
         """
         Solve the ODE on the specified geometry with specified boundary conditions
+        """
+        sol = solve_bvp(
+            self.ode_rhs,
+            self.dirichlet(phi0),
+            x_axis,
+            y_initial,
+            tol=tol,
+            max_nodes=int(1e8),
+            verbose=1)
+        return sol
+
+    @abstractmethod
+    def compute_profiles(self, sol) -> prf.SpatialProfilesSolution:
+        """
+        Convert a dimensionless scipy solution into dimensional spatial
+        profiles
         """
 
 
@@ -165,20 +132,13 @@ class GouyChapman(DoubleLayerModel):
         dy2 = np.sinh(y[0, :])
         return np.vstack([dy1, dy2])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
-        # Obtain potential and electric field
-        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
-        sol = get_odesol(
-            x_axis,
-            initial_guess_dirichlet(x_axis, phi0),
-            self.ode_rhs,
-            self.dirichlet(phi0),
-            self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
-            tol=tol,
-            force_recalculation=force_recalculation)
+    def get_dimensionless_x_axis(self, x_axis_nm):
+        """
+        Return dimensionless x-axis using model length scale.
+        """
+        return self.kappa_debye * 1e-9 * x_axis_nm
 
-        # Return solution struct
+    def compute_profiles(self, sol):
         ret = prf.SpatialProfilesSolution(
             x=sol.x / self.kappa_debye * 1e9,
             phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
@@ -215,19 +175,13 @@ class Borukhov(DoubleLayerModel):
     def dirichlet(self, phi0):
         return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
-        # Obtain potential and electric field
-        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
-        sol = get_odesol(
-            x_axis,
-            initial_guess_dirichlet(x_axis, phi0),
-            self.ode_rhs,
-            self.dirichlet(phi0),
-            self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
-            tol=tol,
-            force_recalculation=force_recalculation)
+    def get_dimensionless_x_axis(self, x_axis_nm):
+        """
+        Return dimensionless x-axis using model length scale.
+        """
+        return self.kappa_debye * 1e-9 * x_axis_nm
 
+    def compute_profiles(self, sol):
         bf_c = np.exp(-sol.y[0, :])
         bf_a = np.exp(sol.y[0, :])
         denom = 1 - self.chi_0 + self.chi_0 * np.cosh(sol.y[0, :])
@@ -246,7 +200,6 @@ class Borukhov(DoubleLayerModel):
             name=self.name)
         return ret
 
-
 class Abrashkin(DoubleLayerModel):
     """
     Abrashkin / Gongadze & Iglic / Huang model
@@ -254,13 +207,13 @@ class Abrashkin(DoubleLayerModel):
     def __init__(self, ion_concentration_molar: float, alpha_c: float, alpha_a: float, eps_r_opt=C.N_WATER**2):
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
-        self.kappa_debye = np.sqrt(2*C.BETA*self.n_0*(C.Z*C.E_0)**2 /
-                                   (C.EPS_R_WATER*C.EPS_0))
 
         self.alpha_c = alpha_c
         self.alpha_a = alpha_a
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
         self.n_s_0 = self.n_max - alpha_c * self.n_0 - alpha_a * self.n_0
+        self.kappa_debye = np.sqrt(2*C.BETA*self.n_max*(C.Z*C.E_0)**2 /
+                                   (C.EPS_R_WATER*C.EPS_0))
 
         self.chi = self.n_0 / self.n_max
         self.chi_s = self.n_s_0 / self.n_max
@@ -289,22 +242,34 @@ class Abrashkin(DoubleLayerModel):
         dy1 = y[1, :]
         n_cat, n_an, n_sol = self.densities(y)
 
-        numer = 1 + self.p_tilde * y[1, :] * langevin_x(self.p_tilde * y[1, :]) * n_sol/self.n_max
-        eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-        denom1 = self.p_tilde**2 * langevin_x(self.p_tilde * y[1, :])**2 * (n_cat + n_an)/self.n_0/2 * n_sol/self.n_max
-        denom2 = self.p_tilde**2 * n_sol/self.n_0/2 * d_langevin_x(self.p_tilde * y[1, :])
+        numer1 = n_an - n_cat
+        numer2 = self.p_tilde * y[1, :] * langevin_x(self.p_tilde * y[1, :]) * \
+            (self.alpha_a * n_an - self.alpha_c * n_cat) * n_sol/self.n_max
+        eps_ratio = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        denom1 = self.p_tilde**2 * n_sol * d_langevin_x(self.p_tilde * y[1, :])
+        denom2 = self.p_tilde**2 * langevin_x(self.p_tilde * y[1, :])**2 * (self.alpha_c * n_cat + self.alpha_a * n_an) * n_sol/self.n_max
 
-        mulfac = numer / (eps_ratio + denom1 + denom2)
-
-        dy2 = - (n_cat - n_an)/self.n_0/2 * mulfac
+        dy2 = (numer1 + numer2) / (eps_ratio + denom1 + denom2)
         return np.vstack([dy1, dy2])
+
+    def get_dimensionless_x_axis(self, x_axis_nm):
+        """
+        Return dimensionless x-axis using model length scale.
+        """
+        return self.kappa_debye * 1e-9 * x_axis_nm
 
     # def ode_rhs(self, x, y):
     #     dy1 = y[1, :]
-    #     n_cat, n_an, _ = self.densities(y)
-    #     eps = self.permittivity(y) / C.EPS_R_WATER
+    #     n_cat, n_an, n_sol = self.densities(y)
 
-    #     dy2 = - (n_cat - n_an)/self.n_0/2 / eps
+    #     numer = 1 + self.p_tilde * y[1, :] * langevin_x(self.p_tilde * y[1, :]) * n_sol/self.n_max
+    #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
+    #     denom1 = self.p_tilde**2 * langevin_x(self.p_tilde * y[1, :])**2 * (n_cat + n_an)/self.n_0/2 * n_sol/self.n_max
+    #     denom2 = self.p_tilde**2 * n_sol/self.n_0/2 * d_langevin_x(self.p_tilde * y[1, :])
+
+    #     mulfac = numer / (eps_ratio + denom1 + denom2)
+
+    #     dy2 = - (n_cat - n_an)/self.n_0/2 * mulfac
     #     return np.vstack([dy1, dy2])
 
     def permittivity(self, sol_y):
@@ -316,22 +281,10 @@ class Abrashkin(DoubleLayerModel):
         sol_y = np.atleast_1d(sol_y).reshape(2, -1)
         _, _, n_sol = self.densities(sol_y)
         return self.eps_r_opt + \
-               1/2 * C.EPS_R_WATER * self.p_tilde**2 * n_sol / self.n_0 * \
+               1/2 * C.EPS_R_WATER * self.p_tilde**2 * n_sol / self.n_max * \
                langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
-    def solve_dirichlet(self, x_axis_nm: np.ndarray, phi0: float, tol=1e-3, force_recalculation=True):
-        # Obtain potential and electric field
-        x_axis = self.kappa_debye * 1e-9 * x_axis_nm
-        sol = get_odesol(
-            x_axis,
-            initial_guess_dirichlet(x_axis, phi0),
-            self.ode_rhs,
-            self.dirichlet(phi0),
-            self.name,
-            f'c0_{self.c_0:.4f}M__xmax_{x_axis_nm[-1]:.0f}nm__bc_Dirichlet{phi0:.2f}',
-            tol=tol,
-            force_recalculation=force_recalculation)
-
+    def compute_profiles(self, sol):
         n_cat, n_an, n_sol = self.densities(sol.y)
 
         # Return solution struct
@@ -349,34 +302,43 @@ class Abrashkin(DoubleLayerModel):
 
         return ret
 
+class Abrashkin2(Abrashkin):
+    def ode_rhs(self, x, y):
+        dy1 = y[1, :]
+        n_cat, n_an, _ = self.densities(y)
+        eps = self.permittivity(y) / C.EPS_R_WATER
 
-class HuangSimple(Abrashkin):
-    """
-    Simplified Huang with constant number of solvent molecules
-    """
-    def __init__(self, ion_concentration_molar: float, alpha_c: float, alpha_a: float, eps_r_opt=C.N_WATER ** 2):
-        super().__init__(ion_concentration_molar, alpha_c, alpha_a, eps_r_opt)
-        self.name = f'Const Nsol {self.c_0:.3f}M {alpha_c:.1f}-{alpha_a:.1f}'
+        dy2 = - (n_cat - n_an)/self.n_max/2 / eps
+        return np.vstack([dy1, dy2])
 
-    def densities(self, sol_y):
-        """
-        Compute cation, anion and solvent densities.
-        """
-        bf_c = np.exp(-sol_y[0, :])
-        bf_a = np.exp(+sol_y[0, :])
-        denom = self.chi_s + self.alpha_c * self.chi * bf_c + self.alpha_a * self.chi * bf_a
-        n_cat = self.n_0 * bf_c / denom
-        n_an  = self.n_0 * bf_a / denom
-        n_sol = self.n_s_0 * np.ones(bf_c.shape)
-        return n_cat, n_an, n_sol
 
-    # def ode_rhs(self, x, y):
-    #     dy1 = y[1, :]
-    #     n_cat, n_an, n_sol = self.densities(y)
+# class HuangSimple(Abrashkin):
+#     """
+#     Simplified Huang with constant number of solvent molecules
+#     """
+#     def __init__(self, ion_concentration_molar: float, alpha_c: float, alpha_a: float, eps_r_opt=C.N_WATER ** 2):
+#         super().__init__(ion_concentration_molar, alpha_c, alpha_a, eps_r_opt)
+#         self.name = f'{self.c_0:.3f}M {alpha_c:.1f}-{alpha_a:.1f}'
 
-    #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
-    #     denom = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
-    #     mulfac = 1 / (2 * eps_ratio + denom)
+#     def densities(self, sol_y):
+#         """
+#         Compute cation, anion and solvent densities.
+#         """
+#         bf_c = np.exp(-sol_y[0, :])
+#         bf_a = np.exp(+sol_y[0, :])
+#         denom = self.chi_s + self.alpha_c * self.chi * bf_c + self.alpha_a * self.chi * bf_a
+#         n_cat = self.n_0 * bf_c / denom
+#         n_an  = self.n_0 * bf_a / denom
+#         n_sol = self.n_s_0 * np.ones(bf_c.shape)
+#         return n_cat, n_an, n_sol
 
-    #     dy2 = - (n_cat - n_an)/self.n_0 * mulfac
-    #     return np.vstack([dy1, dy2])
+#     # def ode_rhs(self, x, y):
+#     #     dy1 = y[1, :]
+#     #     n_cat, n_an, n_sol = self.densities(y)
+
+#     #     eps_ratio = self.eps_r_opt / C.EPS_R_WATER
+#     #     denom = self.g_1 * self.g_2 * self.p_tilde**2 * n_sol/self.n_0 * d_langevin_x(self.g_2 * self.p_tilde * y[1, :])
+#     #     mulfac = 1 / (2 * eps_ratio + denom)
+
+#     #     dy2 = - (n_cat - n_an)/self.n_0 * mulfac
+#     #     return np.vstack([dy1, dy2])

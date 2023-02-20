@@ -39,7 +39,6 @@ def gouy_chapman(ion_concentration_molar: float, potential: np.ndarray):
         np.sinh(C.BETA * C.Z * C.E_0 * potential / 2)
     return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name='Gouy-Chapman analytic')
 
-
 def borukhov(ion_concentration_molar: float, a_m: float, potential: np.ndarray):
     """
     Analytic solution to a potential sweep in the Borukhov-Andelman-Orland model.
@@ -62,36 +61,42 @@ def borukhov(ion_concentration_molar: float, a_m: float, potential: np.ndarray):
     * 1e2 # uF/cm^2
     return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name='Borukhov analytic')
 
-
-def compute_charge(
-        model: M.DoubleLayerModel,
-        phi0: float,
-        force_recalculation: bool=False):
-    """
-    Solve a model for a certain boundary condition with a default x-axis, and
-    compute the surface charge.
-    """
-    x_axis_nm = S.get_x_axis_nm(100, 10000)
-    sol = model.solve_dirichlet(x_axis_nm, phi0, force_recalculation=force_recalculation)
-    return sol.efield[0] * C.EPS_0 * sol.eps[0]
-
-
 def numerical(
         model: M.DoubleLayerModel,
         potential: np.ndarray,
-        force_recalculation: bool=False):
+        tol: float=1e-3):
     """
     Numerical solution to a potential sweep for a defined double-layer model.
     """
-    with mp.Pool(mp.cpu_count()) as pool:
-        chg = pool.starmap(
-            compute_charge,
-            [(model, phi, force_recalculation) for phi in potential])
-        pool.close()
+    chg = np.zeros(potential.shape)
+
+    # Find potential closest to PZC
+    i_pzc = np.argmin(np.abs(potential)).squeeze()
+
+    x_axis_nm = S.get_x_axis_nm(100, 10000)
+
+    x_axis = model.get_dimensionless_x_axis(x_axis_nm)
+    y_initial = np.zeros((2, x_axis.shape[0]))
+    for i in range(i_pzc, -1, -1):
+        sol = model.odesolve_dirichlet(x_axis, y_initial, potential[i], tol=tol)
+        prf = model.compute_profiles(sol)
+        chg[i] = prf.efield[0] * C.EPS_0 * prf.eps[0]
+
+        x_axis = sol.x
+        y_initial = sol.y
+
+    x_axis = model.get_dimensionless_x_axis(x_axis_nm)
+    y_initial = np.zeros((2, x_axis.shape[0]))
+    for i in range(i_pzc, potential.shape[0], 1):
+        sol = model.odesolve_dirichlet(x_axis, y_initial, potential[i], tol=tol)
+        prf = model.compute_profiles(sol)
+        chg[i] = prf.efield[0] * C.EPS_0 * prf.eps[0]
+
+        x_axis = sol.x
+        y_initial = sol.y
 
     cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2
     return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name=model.name)
-
 
 def ph_sweep(p_h_array: np.ndarray, modelclass, args, force_recalculation: bool=False):
     """

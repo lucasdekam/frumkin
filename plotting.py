@@ -74,6 +74,7 @@ def plot_solution(
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(9,4), sharex=True)
 
     ax[0] = plot_phi(ax[0], sol.name, sol.x, sol.phi)
+    # ax[0] = plot_phi(ax[0], sol.name, sol.x, sol.efield)
     ax[0].set_xlim([xmin, xmax])
     ax[1], _ = plot_concentrations(
         ax[1],
@@ -133,7 +134,7 @@ def plot_potential_sweep(sols: list):
 
     for sol in sols:
         ax[0].plot(sol.phi, sol.charge, label=sol.name)
-    ax[0].set_ylabel('Charge [C]')
+    ax[0].set_ylabel(r'$\sigma$ [C/m$^2$]')
     ax[0].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[0].legend()
     ax[0].set_ylim([-0.6, 0.6])
