@@ -5,7 +5,6 @@ Plotting tools for double-layer models
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-import spatial_profiles as prf
 
 def plot_phi(ax: Axes, name: str, x: np.ndarray, phi: np.ndarray, fmt='-', color='black'):
     """
@@ -64,7 +63,7 @@ def plot_permittivity(ax: Axes, x: np.ndarray, eps: np.ndarray, fmt='-', color='
     return ax
 
 def plot_solution(
-        sol: prf.SpatialProfilesSolution,
+        sol,
         xmin: float, xmax: float,
         logscale=True):
     """
@@ -87,8 +86,8 @@ def plot_solution(
 
 
 def plot_sol_comparison(
-        sol1: prf.SpatialProfilesSolution,
-        sol2: prf.SpatialProfilesSolution,
+        sol1,
+        sol2,
         xmin: float, xmax: float,
         logscale=True):
     """
