@@ -277,8 +277,8 @@ class Abrashkin(DoubleLayerModel):
                  gamma_c: float, gamma_a: float,
                  eps_r_opt=C.N_WATER**2) -> None:
         super().__init__(ion_concentration_molar)
-        self.alpha_c = gamma_c
-        self.alpha_a = gamma_a
+        self.gamma_c = gamma_c
+        self.gamma_a = gamma_a
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
         n_s_0 = self.n_max - gamma_c * self.n_0 - gamma_a * self.n_0
 
@@ -299,7 +299,7 @@ class Abrashkin(DoubleLayerModel):
         bf_c = np.exp(-sol_y[0, :])
         bf_a = np.exp(+sol_y[0, :])
         bf_s = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
-        denom = self.chi_s * bf_s + self.alpha_c * self.chi * bf_c + self.alpha_a * self.chi * bf_a
+        denom = self.chi_s * bf_s + self.gamma_c * self.chi * bf_c + self.gamma_a * self.chi * bf_a
         n_cat = self.n_0 * bf_c / denom
         n_an  = self.n_0 * bf_a / denom
         n_sol = self.n_max * self.chi_s * bf_s / denom
@@ -311,11 +311,11 @@ class Abrashkin(DoubleLayerModel):
 
         numer1 = n_an - n_cat
         numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
-            (self.alpha_a * n_an - self.alpha_c * n_cat) * n_sol/self.n_max
+            (self.gamma_a * n_an - self.gamma_c * n_cat) * n_sol/self.n_max
         denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
         denom2 = self.p_tilde**2 * n_sol * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
-            (self.alpha_c * n_cat + self.alpha_a * n_an) * n_sol/self.n_max
+            (self.gamma_c * n_cat + self.gamma_a * n_an) * n_sol/self.n_max
 
         dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
         return np.vstack([dy1, dy2])
