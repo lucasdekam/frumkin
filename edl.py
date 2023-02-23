@@ -361,8 +361,8 @@ class ProtonLPB(DoubleLayerModel):
                  gamma_c: float, gamma_a: float,
                  gamma_h: float, gamma_oh: float,
                  eps_r_opt=C.N_WATER**2) -> None:
-        self.gammas = np.array([gamma_h, gamma_oh, gamma_c, gamma_a, 1])
-        self.charge = np.array([+1, -1, +1, -1, 0])
+        self.gammas = np.array([gamma_h, gamma_oh, gamma_c, gamma_a, 1]).reshape(5, 1)
+        self.charge = np.array([+1, -1, +1, -1, 0]).reshape(5, 1)
 
         # Nondimensional quantities are based on debye length with support ion concentration
         super().__init__(support_ion_concentration_molar)
@@ -379,7 +379,7 @@ class ProtonLPB(DoubleLayerModel):
         Compute cation, anion and solvent densities.
         """
         # Compute bulk number densities
-        c_bulk = np.zeros(5)
+        c_bulk = np.zeros((5, 1))
         c_bulk[0] = 10 ** (- p_h)           # [H+]
         c_bulk[1] = 10 ** (- C.PKW + p_h)   # [OH-]
         c_bulk[2] = self.c_0 + c_bulk[1]    # [Cat]
@@ -397,9 +397,9 @@ class ProtonLPB(DoubleLayerModel):
         bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
 
         # Compute denominator
-        denom = np.sum(self.gammas[:, None] * chi[:, None] * bfs, axis=0)
+        denom = np.sum(self.gammas * chi * bfs, axis=0)
 
-        return n_bulk[:, None] * bfs / denom
+        return n_bulk * bfs / denom
 
     def get_lambda_ode_rhs(self, p_h):
         """
@@ -411,13 +411,13 @@ class ProtonLPB(DoubleLayerModel):
         dy1 = y[1, :]
         n_arr = self.densities(y, p_h)
 
-        numer1 = np.sum(-self.charge[:, None] * n_arr, axis=0)
+        numer1 = np.sum(-self.charge * n_arr, axis=0)
         numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
-            np.sum(n_arr * -self.charge[:, None] * self.gammas[:, None], axis=0) * n_arr[4]/self.n_max
+            np.sum(n_arr * -self.charge * self.gammas, axis=0) * n_arr[4]/self.n_max
         denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
         denom2 = self.p_tilde**2 * n_arr[4] * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
-            np.sum(n_arr * self.charge[:, None]**2 * self.gammas[:, None], axis=0) * n_arr[4]/self.n_max
+            np.sum(n_arr * self.charge**2 * self.gammas, axis=0) * n_arr[4]/self.n_max
 
         dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
         return np.vstack([dy1, dy2])
