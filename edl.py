@@ -403,7 +403,7 @@ class ProtonLPB(DoubleLayerModel):
 
     def get_lambda_ode_rhs(self, p_h):
         """
-        Get the ODE RHS as a lambda function, given a pH
+        Get the ODE RHS as a lambda function to pass to Scipy's solve_bvp, given a pH
         """
         return lambda x, y: self.ode_rhs(x, y, p_h)
 
@@ -452,3 +452,86 @@ class ProtonLPB(DoubleLayerModel):
             name=self.name)
 
         return ret
+
+    def get_insulator_bc_lambda(self, p_h):
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        return lambda ya, yb: self.insulator_bc(ya, yb, p_h)
+
+    def insulator_bc(self, ya, yb, p_h):
+        """
+        Boundary condition
+        """
+        #pylint: disable=invalid-name
+        n_arr = self.densities(ya.reshape(2, 1), p_h)
+        c_arr = n_arr / 1e3 / C.N_A
+        eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
+
+        left = 2 * eps_r * ya[1] / C.EPS_R_WATER \
+            + self.kappa_debye * C.N_SITES_SILICA / self.n_0 \
+            * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
+            / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2) # charge minus or plus?
+        right = yb[0]
+
+        return np.array([left.squeeze(), right])
+
+    def sequential_solve_ins(self, ph_range: np.ndarray, tol: float=1e-3):
+        """
+        Sweep over a potential array and use the previous solution as initial
+        condition for the next.
+
+        Returns: charge for each potential; last solution
+        """
+        chg = np.zeros(ph_range.shape)
+        max_res = np.zeros(ph_range.shape)
+
+        x_axis = self.create_x_mesh(100, 1000)
+        y_initial = np.zeros((2, x_axis.shape[0]))
+
+        last_profiles = None
+
+        for i, p_h in enumerate(ph_range):
+            sol = solve_bvp(
+                self.get_lambda_ode_rhs(p_h),
+                self.get_insulator_bc_lambda(p_h),
+                x_axis,
+                y_initial,
+                tol=tol,
+                max_nodes=int(1e8),
+                verbose=0)
+            last_profiles = self.compute_profiles(sol, p_h)
+            chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
+            max_res[i] = np.max(sol.rms_residuals)
+
+            x_axis = sol.x
+            y_initial = sol.y
+
+        print(f"Sweep from pH {ph_range[0]:.2f} to {ph_range[-1]:.2f}. " \
+            + f"Maximum relative residual: {np.max(max_res):.5e}.")
+        return chg, last_profiles
+
+    def sweep_ins(self, ph_range: np.ndarray, tol: float=1e-3):
+        """
+        Numerical solution to a potential sweep for a defined double-layer model.
+        """
+        # Find pH closest to PZC
+        ph_pzc = 2.0
+        i_pzc = np.argmin(np.abs(ph_range - ph_pzc)).squeeze()
+
+        chg = np.zeros(ph_range.shape)
+        chg_neg, _ = self.sequential_solve_ins(ph_range[i_pzc::-1], tol)
+        chg[:i_pzc+1] = chg_neg[::-1]
+        chg[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1], tol)
+
+        cap = np.zeros(ph_range.shape) # np.gradient(chg, edge_order=2)/np.gradient(ph_range) * 1e2
+        return PotentialSweepSolution(phi=ph_range, charge=chg, cap=cap, name=self.name)
+
+    def spatial_profiles_ins(self, p_h: float, tol: float=1e-3):
+        """
+        Get spatial profiles solution struct.
+        """
+        ph_pzc = 2.0
+        sign = (p_h - ph_pzc)/abs(p_h - ph_pzc + 1e-7)
+        _, profiles = self.sequential_solve_ins(np.arange(ph_pzc, p_h, sign*0.1), tol)
+        return profiles
