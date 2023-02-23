@@ -350,3 +350,105 @@ class Abrashkin(DoubleLayerModel):
             name=self.name)
 
         return ret
+
+
+class ProtonLPB(DoubleLayerModel):
+    """
+    Taking into account protons and hydroxy ions
+    """
+    def __init__(self,
+                 support_ion_concentration_molar: float,
+                 gamma_c: float, gamma_a: float,
+                 gamma_h: float, gamma_oh: float,
+                 eps_r_opt=C.N_WATER**2) -> None:
+        self.gammas = np.array([gamma_h, gamma_oh, gamma_c, gamma_a, 1])
+        self.charge = np.array([+1, -1, +1, -1, 0])
+
+        # Nondimensional quantities are based on debye length with support ion concentration
+        super().__init__(support_ion_concentration_molar)
+        self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
+        self.eps_r_opt = eps_r_opt
+
+        p_water = np.sqrt(3 * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / (C.BETA * self.n_max))
+        self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
+
+        self.name = f'pH-LPB {self.c_0:.3f}M {gamma_c:.1f}-{gamma_a:.1f}'
+
+    def densities(self, sol_y: np.ndarray, p_h: float):
+        """
+        Compute cation, anion and solvent densities.
+        """
+        # Compute bulk number densities
+        c_bulk = np.zeros(5)
+        c_bulk[0] = 10 ** (- p_h)           # [H+]
+        c_bulk[1] = 10 ** (- C.PKW + p_h)   # [OH-]
+        c_bulk[2] = self.c_0 + c_bulk[1]    # [Cat]
+        c_bulk[3] = self.c_0 + c_bulk[0]    # [An]
+        c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
+        n_bulk = c_bulk * 1e3 * C.N_A
+
+        # Compute chi for each species
+        chi = n_bulk / self.n_max
+
+        # Compute Boltzmann factors
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
+        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
+
+        # Compute denominator
+        denom = np.sum(self.gammas[:, None] * chi[:, None] * bfs, axis=0)
+
+        return n_bulk[:, None] * bfs / denom
+
+    def get_lambda_ode_rhs(self, p_h):
+        """
+        Get the ODE RHS as a lambda function, given a pH
+        """
+        return lambda x, y: self.ode_rhs(x, y, p_h)
+
+    def ode_rhs(self, x, y, p_h: float=7):
+        dy1 = y[1, :]
+        n_arr = self.densities(y, p_h)
+
+        numer1 = np.sum(-self.charge[:, None] * n_arr, axis=0)
+        numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
+            np.sum(n_arr * -self.charge[:, None] * self.gammas[:, None], axis=0) * n_arr[4]/self.n_max
+        denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        denom2 = self.p_tilde**2 * n_arr[4] * L.d_langevin_x(self.p_tilde * y[1, :])
+        denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
+            np.sum(n_arr * self.charge[:, None]**2 * self.gammas[:, None], axis=0) * n_arr[4]/self.n_max
+
+        dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
+        return np.vstack([dy1, dy2])
+
+    def permittivity(self, sol_y: np.ndarray, n_sol: np.ndarray):
+        """
+        Compute the permittivity using the electric field
+        n_sol: solvent number density
+        y_1: dimensionless electric field
+        """
+        two_nref_over_epsrw = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        return self.eps_r_opt + \
+               self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
+               L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
+
+    def compute_profiles(self, sol, p_h: float=7):
+        n_arr = self.densities(sol.y, p_h)
+
+        # Return solution struct
+        ret = SpatialProfilesSolution(
+            x=sol.x / self.kappa_debye * 1e9,
+            phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
+            efield=-sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
+            c_dict={
+                r'H$^+$': n_arr[0]/1e3/C.N_A,
+                r'OH$^-$': n_arr[1]/1e3/C.N_A,
+                'Cations': n_arr[2]/1e3/C.N_A,
+                'Anions': n_arr[3]/1e3/C.N_A,
+                'Solvent': n_arr[4]/1e3/C.N_A
+            },
+            eps=self.permittivity(sol.y, n_arr[4]),
+            name=self.name)
+
+        return ret
