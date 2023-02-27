@@ -471,7 +471,7 @@ class ProtonLPB(DoubleLayerModel):
         left = 2 * eps_r * ya[1] / C.EPS_R_WATER \
             + self.kappa_debye * C.N_SITES_SILICA / self.n_0 \
             * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
-            / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2) # charge minus or plus?
+            / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2)
         right = yb[0]
 
         return np.array([left.squeeze(), right])
@@ -484,6 +484,7 @@ class ProtonLPB(DoubleLayerModel):
         Returns: charge for each potential; last solution
         """
         chg = np.zeros(ph_range.shape)
+        phi = np.zeros(ph_range.shape)
         max_res = np.zeros(ph_range.shape)
 
         x_axis = self.create_x_mesh(100, 1000)
@@ -502,6 +503,7 @@ class ProtonLPB(DoubleLayerModel):
                 verbose=0)
             last_profiles = self.compute_profiles(sol, p_h)
             chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
+            phi[i] = last_profiles.phi[0]
             max_res[i] = np.max(sol.rms_residuals)
 
             x_axis = sol.x
@@ -509,7 +511,7 @@ class ProtonLPB(DoubleLayerModel):
 
         print(f"Sweep from pH {ph_range[0]:.2f} to {ph_range[-1]:.2f}. " \
             + f"Maximum relative residual: {np.max(max_res):.5e}.")
-        return chg, last_profiles
+        return phi, chg, last_profiles
 
     def sweep_ins(self, ph_range: np.ndarray, tol: float=1e-3):
         """
@@ -520,18 +522,20 @@ class ProtonLPB(DoubleLayerModel):
         i_pzc = np.argmin(np.abs(ph_range - ph_pzc)).squeeze()
 
         chg = np.zeros(ph_range.shape)
-        chg_neg, _ = self.sequential_solve_ins(ph_range[i_pzc::-1], tol)
+        phi = np.zeros(ph_range.shape)
+        phi_neg, chg_neg, _ = self.sequential_solve_ins(ph_range[i_pzc::-1], tol)
         chg[:i_pzc+1] = chg_neg[::-1]
-        chg[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1], tol)
+        phi[:i_pzc+1] = phi_neg[::-1]
+        phi[i_pzc:], chg[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1], tol)
 
-        cap = np.zeros(ph_range.shape) # np.gradient(chg, edge_order=2)/np.gradient(ph_range) * 1e2
-        return PotentialSweepSolution(phi=ph_range, charge=chg, cap=cap, name=self.name)
+        cap = np.gradient(chg, edge_order=2)/np.gradient(phi) * 1e2
+        return PotentialSweepSolution(phi=phi, charge=chg, cap=cap, name=self.name)
 
     def spatial_profiles_ins(self, p_h: float, tol: float=1e-3):
         """
         Get spatial profiles solution struct.
         """
         ph_pzc = 2.0
-        sign = (p_h - ph_pzc)/abs(p_h - ph_pzc + 1e-7)
-        _, profiles = self.sequential_solve_ins(np.arange(ph_pzc, p_h, sign*0.1), tol)
+        sign = (p_h - ph_pzc)/abs(p_h - ph_pzc)
+        _, _, profiles = self.sequential_solve_ins(np.arange(ph_pzc, p_h, sign*0.1), tol)
         return profiles
