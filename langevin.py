@@ -58,3 +58,10 @@ def sinh_x_over_x(x): #pylint: disable=invalid-name
     ret[select_normal] = np.sinh(x[select_normal])/(x[select_normal])
     ret[select_big] = 2e41
     return ret
+
+def sinh_x1_over_x1_times_exp_x2(x1, x2): #pylint: disable=invalid-name
+    """
+    Returns sinh(x1)/x1 * exp(x2). 
+    """
+    exp_diff = np.exp(np.minimum(x1 + x2, 1e2)) - np.exp(np.minimum(-x1 + x2, 1e2))
+    return exp_diff/2/x1
