@@ -2,3 +2,7 @@ solutions/*
 __pycache__/*
 .ipynb_checkpoints/*
 *.png
+<<<<<<< HEAD
+=======
+.vscode*
+>>>>>>> parent of 8bf8884 (Merge pull request #2 from lucasdekam/fix-dipolarpb)
