@@ -63,7 +63,7 @@ def sinh_x1_over_x1_times_exp_x2(x1, x2): #pylint: disable=invalid-name
     """
     Returns sinh(x1)/x1 * exp(x2). 
     """
-    select = x1 < 1e-4
+    select = np.abs(x1) < 1e-9
     ret = np.zeros(x1.shape)
     exp_diff = np.exp(np.minimum(x1[~select] + x2[~select], 1e2)) \
         - np.exp(np.minimum(-x1[~select] + x2[~select], 1e2))
