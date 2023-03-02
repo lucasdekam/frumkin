@@ -5,7 +5,6 @@ Plotting tools for double-layer models
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-import spatial_profiles as prf
 
 def plot_phi(ax: Axes, name: str, x: np.ndarray, phi: np.ndarray, fmt='-', color='black'):
     """
@@ -64,7 +63,7 @@ def plot_permittivity(ax: Axes, x: np.ndarray, eps: np.ndarray, fmt='-', color='
     return ax
 
 def plot_solution(
-        sol: prf.SpatialProfilesSolution,
+        sol,
         xmin: float, xmax: float,
         logscale=True):
     """
@@ -74,6 +73,7 @@ def plot_solution(
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(9,4), sharex=True)
 
     ax[0] = plot_phi(ax[0], sol.name, sol.x, sol.phi)
+    # ax[0] = plot_phi(ax[0], sol.name, sol.x, sol.efield)
     ax[0].set_xlim([xmin, xmax])
     ax[1], _ = plot_concentrations(
         ax[1],
@@ -86,8 +86,8 @@ def plot_solution(
 
 
 def plot_sol_comparison(
-        sol1: prf.SpatialProfilesSolution,
-        sol2: prf.SpatialProfilesSolution,
+        sol1,
+        sol2,
         xmin: float, xmax: float,
         logscale=True):
     """
@@ -133,7 +133,7 @@ def plot_potential_sweep(sols: list):
 
     for sol in sols:
         ax[0].plot(sol.phi, sol.charge, label=sol.name)
-    ax[0].set_ylabel('Charge [C]')
+    ax[0].set_ylabel(r'$\sigma$ [C/m$^2$]')
     ax[0].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[0].legend()
     ax[0].set_ylim([-0.6, 0.6])
