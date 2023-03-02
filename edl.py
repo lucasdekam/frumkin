@@ -382,7 +382,7 @@ class ProtonLPB(DoubleLayerModel):
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
         self.eps_r_opt = eps_r_opt
         self.kappa_debye = np.sqrt(2*self.n_max*(C.Z*C.E_0)**2 /
-                                   (C.EPS_0*C.K_B*C.T))
+                                   (C.EPS_0*C.EPS_R_WATER*C.K_B*C.T))
         
         p_water = np.sqrt(3 * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / (C.BETA * self.n_max))
         self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
@@ -514,7 +514,7 @@ class ProtonLPB(DoubleLayerModel):
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
         left = 2 * eps_r * ya[1] \
-            + self.kappa_debye * C.N_SITES_SILICA / self.n_max \
+            + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
             * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
             / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2)
         right = yb[0]
