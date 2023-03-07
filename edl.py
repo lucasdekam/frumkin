@@ -383,7 +383,7 @@ class ProtonLPB(DoubleLayerModel):
         self.eps_r_opt = eps_r_opt
         self.kappa_debye = np.sqrt(2*self.n_max*(C.Z*C.E_0)**2 /
                                    (C.EPS_0*C.EPS_R_WATER*C.K_B*C.T))
-        
+
         p_water = np.sqrt(3 * (C.EPS_R_WATER - self.eps_r_opt) * C.EPS_0 / (C.BETA * self.n_max))
         self.p_tilde = p_water * self.kappa_debye / (C.Z * C.E_0)
 
@@ -413,7 +413,7 @@ class ProtonLPB(DoubleLayerModel):
         bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_neg], sol_y[0,big_neg])
         denom_combined = chi[4] * bf_combined + self.gammas[0]*chi[0] + self.gammas[2]*chi[2] \
             + self.gammas[1]*chi[1]*np.exp(+2*sol_y[0, big_neg]) \
-            + self.gammas[3]*chi[3]*np.exp(+2*sol_y[0, big_neg]) 
+            + self.gammas[3]*chi[3]*np.exp(+2*sol_y[0, big_neg])
         n_profile[0, big_neg] = n_bulk[0] / denom_combined
         n_profile[1, big_neg] = n_bulk[1]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
         n_profile[2, big_neg] = n_bulk[2] / denom_combined
@@ -425,14 +425,14 @@ class ProtonLPB(DoubleLayerModel):
         bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_pos], -sol_y[0,big_pos])
         denom_combined = chi[4] * bf_combined + self.gammas[1]*chi[1] + self.gammas[3]*chi[3] \
             + self.gammas[0]*chi[0]*np.exp(-2*sol_y[0, big_pos]) \
-            + self.gammas[2]*chi[2]*np.exp(-2*sol_y[0, big_pos]) 
+            + self.gammas[2]*chi[2]*np.exp(-2*sol_y[0, big_pos])
         n_profile[0, big_pos] = n_bulk[0]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
         n_profile[1, big_pos] = n_bulk[1] / denom_combined
         n_profile[2, big_pos] = n_bulk[2]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
         n_profile[3, big_pos] = n_bulk[3] / denom_combined
         n_profile[4, big_pos] = n_bulk[4] * bf_combined / denom_combined
 
-        # General case: compute Boltzmann factors        
+        # General case: compute Boltzmann factors
         bf_pos = np.exp(-sol_y[0, ~big_neg * ~big_pos])
         bf_neg = np.exp(+sol_y[0, ~big_neg * ~big_pos])
         bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, ~big_neg * ~big_pos])
@@ -576,7 +576,7 @@ class ProtonLPB(DoubleLayerModel):
         chg[:i_pzc+1] = chg_neg[::-1]
         phi[:i_pzc+1] = phi_neg[::-1]
         c_h[:i_pzc+1] = c_h_neg[::-1]
-        phi[i_pzc:], chg[i_pzc:], c_h[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1], 
+        phi[i_pzc:], chg[i_pzc:], c_h[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1],
                                                                              tol)
         cap = np.gradient(chg, edge_order=2)/np.gradient(phi) * 1e2
         return PhSweepSolution(phi=phi, charge=chg, cap=cap, c_h=c_h, name=self.name)
@@ -588,4 +588,74 @@ class ProtonLPB(DoubleLayerModel):
         ph_pzc = -1/2 * np.log10(C.K_SILICA_A*C.K_SILICA_B)
         sign = (p_h - ph_pzc)/abs(p_h - ph_pzc)
         _, _, _, profiles = self.sequential_solve_ins(np.arange(ph_pzc, p_h, sign*0.01), tol)
+        return profiles
+
+    def odesolve_dirichlet(self,
+            x_axis: np.ndarray,
+            y_initial: np.ndarray,
+            phi0: float,
+            tol: float=1e-3,
+            p_h: float=7):
+        """
+        Wrapper for scipy's solve_bvp, using the class methods
+        """
+        sol = solve_bvp(
+            self.get_lambda_ode_rhs(p_h),
+            self.dirichlet(phi0),
+            x_axis,
+            y_initial,
+            tol=tol,
+            max_nodes=int(1e8),
+            verbose=0)
+        return sol
+
+    def sequential_solve(self, potential: np.ndarray, tol: float=1e-3, p_h: float=7):
+        """
+        Sweep over a potential array and use the previous solution as initial
+        condition for the next.
+
+        Returns: charge for each potential; last solution
+        """
+        chg = np.zeros(potential.shape)
+        max_res = np.zeros(potential.shape)
+
+        x_axis = self.create_x_mesh(100, 1000)
+        y_initial = np.zeros((2, x_axis.shape[0]))
+
+        last_profiles = None
+
+        for i, phi in enumerate(potential):
+            sol = self.odesolve_dirichlet(x_axis, y_initial, phi, tol=tol, p_h=p_h)
+            last_profiles = self.compute_profiles(sol, p_h=p_h)
+            chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
+            max_res[i] = np.max(sol.rms_residuals)
+
+            x_axis = sol.x
+            y_initial = sol.y
+
+        print(f"Sweep from {potential[0]:.2f}V to {potential[-1]:.2f}V. " \
+            + f"Maximum relative residual: {np.max(max_res):.5e}.")
+        return chg, last_profiles
+
+    def sweep(self, potential: np.ndarray, tol: float=1e-3, p_h: float=7):
+        """
+        Numerical solution to a potential sweep for a defined double-layer model.
+        """
+        # Find potential closest to PZC
+        i_pzc = np.argmin(np.abs(potential)).squeeze()
+
+        chg = np.zeros(potential.shape)
+        chg_neg, _ = self.sequential_solve(potential[i_pzc::-1], tol, p_h)
+        chg[:i_pzc+1] = chg_neg[::-1]
+        chg[i_pzc:], _ = self.sequential_solve(potential[i_pzc::1], tol, p_h)
+
+        cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2
+        return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name=self.name)
+
+    def spatial_profiles(self, phi0: float, tol: float=1e-3, p_h: float=7):
+        """
+        Get spatial profiles solution struct.
+        """
+        sign = phi0/abs(phi0)
+        _, profiles = self.sequential_solve(np.arange(0, phi0, sign*0.01), tol, p_h)
         return profiles
