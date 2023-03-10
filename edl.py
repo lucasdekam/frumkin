@@ -513,10 +513,17 @@ class ProtonLPB(DoubleLayerModel):
         c_arr = n_arr / 1e3 / C.N_A
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
-        left = 2 * eps_r * ya[1] \
-            + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-            * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
-            / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2)
+        left = None
+        if p_h <= 5.0:
+            left = 2 * eps_r * ya[1] \
+                + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+                * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
+                / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2)
+        else:
+            left = - 2 * eps_r * ya[1] \
+                + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+                * (c_arr[1]**2 - C.K_WATER ** 2 / (C.K_SILICA_A * C.K_SILICA_B)) \
+                / (C.K_WATER ** 2 / (C.K_SILICA_A * C.K_SILICA_B) + C.K_WATER/C.K_SILICA_A * c_arr[1] + c_arr[1]**2)
         right = yb[0]
 
         return np.array([left.squeeze(), right])
