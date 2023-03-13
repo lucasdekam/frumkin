@@ -395,10 +395,10 @@ class ProtonLPB(DoubleLayerModel):
         """
         # Compute bulk number densities
         c_bulk = np.zeros((5, 1))
-        c_bulk[0] = 10 ** (- p_h)           # [H+]
-        c_bulk[1] = 10 ** (- C.PKW + p_h)   # [OH-]
-        c_bulk[2] = self.c_0 + c_bulk[1]    # [Cat]
-        c_bulk[3] = self.c_0 + c_bulk[0]    # [An]
+        c_bulk[0] = 10 ** (- p_h)                         # [H+]
+        c_bulk[1] = 10 ** (- C.PKW + p_h)                 # [OH-]
+        c_bulk[2] = max(self.c_0, c_bulk[1]) - c_bulk[0]  # [Cat]
+        c_bulk[3] = c_bulk[2] + c_bulk[0] - c_bulk[1]     # [An]
         c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
         n_bulk = c_bulk * 1e3 * C.N_A
 
