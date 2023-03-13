@@ -397,8 +397,8 @@ class ProtonLPB(DoubleLayerModel):
         c_bulk = np.zeros((5, 1))
         c_bulk[0] = 10 ** (- p_h)                         # [H+]
         c_bulk[1] = 10 ** (- C.PKW + p_h)                 # [OH-]
-        c_bulk[2] = max(self.c_0, c_bulk[1]) - c_bulk[0]  # [Cat]
-        c_bulk[3] = c_bulk[2] + c_bulk[0] - c_bulk[1]     # [An]
+        c_bulk[2] = self.c_0                              # [Cat]
+        c_bulk[3] = self.c_0 + c_bulk[0] - c_bulk[1]      # [An]
         c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
         n_bulk = c_bulk * 1e3 * C.N_A
 
@@ -408,41 +408,41 @@ class ProtonLPB(DoubleLayerModel):
         # Initialize array for profiles
         n_profile = np.zeros((5, sol_y.shape[1]))
 
-        # Asymptotic case: large negative electrode potential
-        big_neg = sol_y[0, :] < -1
-        bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_neg], sol_y[0,big_neg])
-        denom_combined = chi[4] * bf_combined + self.gammas[0]*chi[0] + self.gammas[2]*chi[2] \
-            + self.gammas[1]*chi[1]*np.exp(+2*sol_y[0, big_neg]) \
-            + self.gammas[3]*chi[3]*np.exp(+2*sol_y[0, big_neg])
-        n_profile[0, big_neg] = n_bulk[0] / denom_combined
-        n_profile[1, big_neg] = n_bulk[1]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
-        n_profile[2, big_neg] = n_bulk[2] / denom_combined
-        n_profile[3, big_neg] = n_bulk[3]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
-        n_profile[4, big_neg] = n_bulk[4] * bf_combined / denom_combined
+        # # Asymptotic case: large negative electrode potential
+        # big_neg = sol_y[0, :] < -np.inf
+        # bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_neg], sol_y[0,big_neg])
+        # denom_combined = chi[4] * bf_combined + self.gammas[0]*chi[0] + self.gammas[2]*chi[2] \
+        #     + self.gammas[1]*chi[1]*np.exp(+2*sol_y[0, big_neg]) \
+        #     + self.gammas[3]*chi[3]*np.exp(+2*sol_y[0, big_neg])
+        # n_profile[0, big_neg] = n_bulk[0] / denom_combined
+        # n_profile[1, big_neg] = n_bulk[1]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
+        # n_profile[2, big_neg] = n_bulk[2] / denom_combined
+        # n_profile[3, big_neg] = n_bulk[3]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
+        # n_profile[4, big_neg] = n_bulk[4] * bf_combined / denom_combined
 
-        # Asymptotic case: large positive electrode potential and electric field
-        big_pos = sol_y[0, :] > 1
-        bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_pos], -sol_y[0,big_pos])
-        denom_combined = chi[4] * bf_combined + self.gammas[1]*chi[1] + self.gammas[3]*chi[3] \
-            + self.gammas[0]*chi[0]*np.exp(-2*sol_y[0, big_pos]) \
-            + self.gammas[2]*chi[2]*np.exp(-2*sol_y[0, big_pos])
-        n_profile[0, big_pos] = n_bulk[0]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
-        n_profile[1, big_pos] = n_bulk[1] / denom_combined
-        n_profile[2, big_pos] = n_bulk[2]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
-        n_profile[3, big_pos] = n_bulk[3] / denom_combined
-        n_profile[4, big_pos] = n_bulk[4] * bf_combined / denom_combined
+        # # Asymptotic case: large positive electrode potential and electric field
+        # big_pos = sol_y[0, :] > np.inf
+        # bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_pos], -sol_y[0,big_pos])
+        # denom_combined = chi[4] * bf_combined + self.gammas[1]*chi[1] + self.gammas[3]*chi[3] \
+        #     + self.gammas[0]*chi[0]*np.exp(-2*sol_y[0, big_pos]) \
+        #     + self.gammas[2]*chi[2]*np.exp(-2*sol_y[0, big_pos])
+        # n_profile[0, big_pos] = n_bulk[0]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
+        # n_profile[1, big_pos] = n_bulk[1] / denom_combined
+        # n_profile[2, big_pos] = n_bulk[2]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
+        # n_profile[3, big_pos] = n_bulk[3] / denom_combined
+        # n_profile[4, big_pos] = n_bulk[4] * bf_combined / denom_combined
 
         # General case: compute Boltzmann factors
-        bf_pos = np.exp(-sol_y[0, ~big_neg * ~big_pos])
-        bf_neg = np.exp(+sol_y[0, ~big_neg * ~big_pos])
-        bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, ~big_neg * ~big_pos])
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
         bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
 
         # Compute denominator
         denom = np.sum(self.gammas * chi * bfs, axis=0)
 
         # Compute profiles
-        n_profile[:, ~big_neg * ~big_pos] = n_bulk * bfs / denom
+        n_profile = n_bulk * bfs / denom
 
         return n_profile
 
@@ -514,7 +514,7 @@ class ProtonLPB(DoubleLayerModel):
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
         left = None
-        if p_h <= 5.0:
+        if p_h < 4.0:
             left = 2 * eps_r * ya[1] \
                 + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
                 * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
@@ -540,7 +540,7 @@ class ProtonLPB(DoubleLayerModel):
         c_h = np.zeros(ph_range.shape)
         max_res = np.zeros(ph_range.shape)
 
-        x_axis = self.create_x_mesh(10, 1000)
+        x_axis = self.create_x_mesh(50, 1000)
         y_initial = np.zeros((2, x_axis.shape[0]))
 
         last_profiles = None
