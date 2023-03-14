@@ -57,6 +57,13 @@ class PhSweepSolution:
     c_h:    np.ndarray
     name:   str
 
+def k_fraction(k_a, k_b, conc):
+    """
+    Shorthand for the fraction with Ka's and Kb's in the insulator boundary
+    condition
+    """
+    return (conc**2 - k_a * k_b) / (k_a * k_b + k_b * conc + conc**2)
+
 class DoubleLayerModel:
     """
     Base class for an ODE. Implements basic features, but leaves
@@ -405,33 +412,6 @@ class ProtonLPB(DoubleLayerModel):
         # Compute chi for each species
         chi = n_bulk / self.n_max
 
-        # Initialize array for profiles
-        n_profile = np.zeros((5, sol_y.shape[1]))
-
-        # # Asymptotic case: large negative electrode potential
-        # big_neg = sol_y[0, :] < -np.inf
-        # bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_neg], sol_y[0,big_neg])
-        # denom_combined = chi[4] * bf_combined + self.gammas[0]*chi[0] + self.gammas[2]*chi[2] \
-        #     + self.gammas[1]*chi[1]*np.exp(+2*sol_y[0, big_neg]) \
-        #     + self.gammas[3]*chi[3]*np.exp(+2*sol_y[0, big_neg])
-        # n_profile[0, big_neg] = n_bulk[0] / denom_combined
-        # n_profile[1, big_neg] = n_bulk[1]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
-        # n_profile[2, big_neg] = n_bulk[2] / denom_combined
-        # n_profile[3, big_neg] = n_bulk[3]*np.exp(+2*sol_y[0, big_neg]) / denom_combined
-        # n_profile[4, big_neg] = n_bulk[4] * bf_combined / denom_combined
-
-        # # Asymptotic case: large positive electrode potential and electric field
-        # big_pos = sol_y[0, :] > np.inf
-        # bf_combined = L.sinh_x1_over_x1_times_exp_x2(self.p_tilde*sol_y[1,big_pos], -sol_y[0,big_pos])
-        # denom_combined = chi[4] * bf_combined + self.gammas[1]*chi[1] + self.gammas[3]*chi[3] \
-        #     + self.gammas[0]*chi[0]*np.exp(-2*sol_y[0, big_pos]) \
-        #     + self.gammas[2]*chi[2]*np.exp(-2*sol_y[0, big_pos])
-        # n_profile[0, big_pos] = n_bulk[0]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
-        # n_profile[1, big_pos] = n_bulk[1] / denom_combined
-        # n_profile[2, big_pos] = n_bulk[2]*np.exp(-2*sol_y[0, big_pos]) / denom_combined
-        # n_profile[3, big_pos] = n_bulk[3] / denom_combined
-        # n_profile[4, big_pos] = n_bulk[4] * bf_combined / denom_combined
-
         # General case: compute Boltzmann factors
         bf_pos = np.exp(-sol_y[0, :])
         bf_neg = np.exp(+sol_y[0, :])
@@ -445,6 +425,32 @@ class ProtonLPB(DoubleLayerModel):
         n_profile = n_bulk * bfs / denom
 
         return n_profile
+
+    def get_omega(self, sol_y: np.ndarray, p_h: float):
+        """
+        Get denominator of densities
+        """
+        # Compute bulk number densities
+        c_bulk = np.zeros((5, 1))
+        c_bulk[0] = 10 ** (- p_h)                         # [H+]
+        c_bulk[1] = 10 ** (- C.PKW + p_h)                 # [OH-]
+        c_bulk[2] = self.c_0                              # [Cat]
+        c_bulk[3] = self.c_0 + c_bulk[0] - c_bulk[1]      # [An]
+        c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
+        n_bulk = c_bulk * 1e3 * C.N_A
+
+        # Compute chi for each species
+        chi = n_bulk / self.n_max
+
+        # General case: compute Boltzmann factors
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
+        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
+
+        # Compute denominator
+        denom = np.sum(self.gammas * chi * bfs, axis=0)
+        return denom
 
     def get_lambda_ode_rhs(self, p_h):
         """
@@ -517,13 +523,12 @@ class ProtonLPB(DoubleLayerModel):
         if p_h < 4.0:
             left = 2 * eps_r * ya[1] \
                 + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-                * (c_arr[0]**2 - C.K_SILICA_A * C.K_SILICA_B) \
-                / (C.K_SILICA_A * C.K_SILICA_B + C.K_SILICA_B * c_arr[0] + c_arr[0]**2)
+                * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_arr[0])
         else:
+            KW = C.K_WATER / self.get_omega(ya.reshape(2, 1), p_h)
             left = - 2 * eps_r * ya[1] \
                 + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-                * (c_arr[1]**2 - C.K_WATER ** 2 / (C.K_SILICA_A * C.K_SILICA_B)) \
-                / (C.K_WATER ** 2 / (C.K_SILICA_A * C.K_SILICA_B) + C.K_WATER/C.K_SILICA_A * c_arr[1] + c_arr[1]**2)
+                * k_fraction(KW / C.K_SILICA_B, KW / C.K_SILICA_A, c_arr[1])
         right = yb[0]
 
         return np.array([left.squeeze(), right])
