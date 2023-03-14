@@ -38,24 +38,12 @@ class PotentialSweepSolution:
     charge: calculated surface charge, C/m^2
     cap: differential capacitance, uF/cm^2
     """
-    phi:    np.ndarray
-    charge: np.ndarray
-    cap:    np.ndarray
-    name:   str
+    phi:        np.ndarray
+    charge:     np.ndarray
+    cap:        np.ndarray
+    profiles:   list
+    name:       str
 
-@dataclass
-class PhSweepSolution:
-    """
-    Data class to store potential sweep solution data, e.g. differential capacitance
-    phi: potential range, V
-    charge: calculated surface charge, C/m^2
-    cap: differential capacitance, uF/cm^2
-    """
-    phi:    np.ndarray
-    charge: np.ndarray
-    cap:    np.ndarray
-    c_h:    np.ndarray
-    name:   str
 
 def k_fraction(k_a, k_b, conc):
     """
@@ -63,6 +51,7 @@ def k_fraction(k_a, k_b, conc):
     condition
     """
     return (conc**2 - k_a * k_b) / (k_a * k_b + k_b * conc + conc**2)
+
 
 class DoubleLayerModel:
     """
@@ -85,7 +74,7 @@ class DoubleLayerModel:
         return self.kappa_debye * 1e-9 * x_nm
 
     @abstractmethod
-    def ode_rhs(self, x, y):  # pylint: disable=unused-argument, invalid-name
+    def ode_rhs(self, x, y, p_h=7):  # pylint: disable=unused-argument, invalid-name
         """
         Function to pass to ODE solver, specifying the right-hand side of the
         system of dimensionless 1st order ODE's that we solve.
@@ -93,59 +82,60 @@ class DoubleLayerModel:
         y: dimensionless potential phi and dphi/dx, size 2 x n.
         """
 
-    def dirichlet(self, phi0):
+    def ode_lambda(self, p_h=7):
+        """
+        Get an ODE RHS function to pass to Scipy's solve_bvp; using lambda gives
+        the possibility to include specific parameters like pH in derived classes
+        """
+        return lambda x, y: self.ode_rhs(x, y, p_h)
+
+    def dirichlet_lambda(self, phi0):
         """
         Return a boundary condition function to pass to scipy's solve_bvp
         """
         return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
 
-    def odesolve_dirichlet(self,
-            x_axis: np.ndarray,
-            y_initial: np.ndarray,
-            phi0: float,
-            tol: float=1e-3):
+    def potential_sequential_solve(self,
+                         ode_lambda: callable,
+                         potential: np.ndarray,
+                         tol: float=1e-3,
+                         p_h: float=7):
         """
-        Wrapper for scipy's solve_bvp, using the class methods
-        """
-        sol = solve_bvp(
-            self.ode_rhs,
-            self.dirichlet(phi0),
-            x_axis,
-            y_initial,
-            tol=tol,
-            max_nodes=int(1e8),
-            verbose=0)
-        return sol
+        Sweep over a boundary condition parameter array (potential, pH) and use the previous
+        solution as initial condition for the next. The initial condition assumes that we
+        start at the PZC.
 
-    def sequential_solve(self, potential: np.ndarray, tol: float=1e-3):
-        """
-        Sweep over a potential array and use the previous solution as initial
-        condition for the next.
-
-        Returns: charge for each potential; last solution
+        Returns: charge for each parameter; list of SpatialProfilesSolutions
         """
         chg = np.zeros(potential.shape)
+        profile_list = []
         max_res = np.zeros(potential.shape)
 
         x_axis = self.create_x_mesh(100, 1000)
         y_initial = np.zeros((2, x_axis.shape[0]))
 
-        last_profiles = None
-
         for i, phi in enumerate(potential):
-            sol = self.odesolve_dirichlet(x_axis, y_initial, phi, tol=tol)
-            last_profiles = self.compute_profiles(sol)
-            chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
+            sol = solve_bvp(
+                ode_lambda(p_h),
+                self.dirichlet_lambda(phi),
+                x_axis,
+                y_initial,
+                tol=tol,
+                max_nodes=int(1e8),
+                verbose=0)
+            prf = self.compute_profiles(sol)
+            chg[i] = prf.efield[0] * C.EPS_0 * prf.eps[0]
             max_res[i] = np.max(sol.rms_residuals)
+            profile_list.append(prf)
 
             x_axis = sol.x
             y_initial = sol.y
 
         print(f"Sweep from {potential[0]:.2f}V to {potential[-1]:.2f}V. " \
             + f"Maximum relative residual: {np.max(max_res):.5e}.")
-        return chg, last_profiles
+        return chg, profile_list
 
-    def sweep(self, potential: np.ndarray, tol: float=1e-3):
+    def potential_sweep(self, potential: np.ndarray, tol: float=1e-3, p_h=7):
         """
         Numerical solution to a potential sweep for a defined double-layer model.
         """
@@ -153,20 +143,35 @@ class DoubleLayerModel:
         i_pzc = np.argmin(np.abs(potential)).squeeze()
 
         chg = np.zeros(potential.shape)
-        chg_neg, _ = self.sequential_solve(potential[i_pzc::-1], tol)
+        chg_neg, profiles_neg = self.potential_sequential_solve(
+            self.ode_lambda,
+            potential[i_pzc::-1],
+            tol=tol,
+            p_h=p_h)
         chg[:i_pzc+1] = chg_neg[::-1]
-        chg[i_pzc:], _ = self.sequential_solve(potential[i_pzc::1], tol)
+        chg[i_pzc:], profiles_pos = self.potential_sequential_solve(
+            self.ode_lambda,
+            potential[i_pzc::1],
+            tol)
 
         cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2
-        return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name=self.name)
+        sol = PotentialSweepSolution(phi=potential,
+                                     charge=chg,
+                                     cap=cap,
+                                     profiles=profiles_neg[::-1] + profiles_pos,
+                                     name=self.name)
+        return sol
 
-    def spatial_profiles(self, phi0: float, tol: float=1e-3):
+    def spatial_profiles(self, phi0: float, tol: float=1e-3, p_h=7):
         """
         Get spatial profiles solution struct.
         """
         sign = phi0/abs(phi0)
-        _, profiles = self.sequential_solve(np.arange(0, phi0, sign*0.01), tol)
-        return profiles
+        _, profiles = self.potential_sequential_solve(self.ode_lambda,
+                                                      np.arange(0, phi0, sign*0.01),
+                                                      tol=tol,
+                                                      p_h=p_h)
+        return profiles[-1]
 
     @abstractmethod
     def compute_profiles(self, sol) -> SpatialProfilesSolution:
@@ -185,7 +190,7 @@ class GouyChapman(DoubleLayerModel):
         super().__init__(ion_concentration_molar)
         self.name = f'Gouy-Chapman {self.c_0:.3f}M'
 
-    def ode_rhs(self, x, y):
+    def ode_rhs(self, x, y, p_h=7):
         dy1 = y[1, :]
         dy2 = np.sinh(y[0, :])
         return np.vstack([dy1, dy2])
@@ -215,7 +220,7 @@ class GouyChapman(DoubleLayerModel):
         chg = np.sqrt(8 * self.n_0 * C.K_B * C.T * C.EPS_R_WATER * C.EPS_0) * \
             np.sinh(C.BETA * C.Z * C.E_0 * potential / 2)
         return PotentialSweepSolution(
-            phi=potential, charge=chg, cap=cap, name=self.name + ' (Analytic)')
+            phi=potential, charge=chg, cap=cap, profiles=[], name=self.name + ' (Analytic)')
 
 
 class Borukhov(DoubleLayerModel):
@@ -230,19 +235,10 @@ class Borukhov(DoubleLayerModel):
         self.n_max = 1/a_m**3
         self.name = f'Borukhov {self.c_0:.3f}M {a_m*1e10:.1f}Å'
 
-    def ode_rhs(self, x, y):
+    def ode_rhs(self, x, y, p_h=7):
         dy1 = y[1, :]
         dy2 = np.sinh(y[0, :]) / (1 - self.chi_0 + self.chi_0 * np.cosh(y[0, :]))
         return np.vstack([dy1, dy2])
-
-    def dirichlet(self, phi0):
-        return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
-
-    def get_dimensionless_x_axis(self, x_axis_nm):
-        """
-        Return dimensionless x-axis using model length scale.
-        """
-        return self.kappa_debye * 1e-9 * x_axis_nm
 
     def compute_profiles(self, sol):
         bf_c = np.exp(-sol.y[0, :])
@@ -280,7 +276,7 @@ class Borukhov(DoubleLayerModel):
             / (2*np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1))) \
             * 1e2 # uF/cm^2
         return PotentialSweepSolution(
-            phi=potential, charge=chg, cap=cap, name=self.name + ' (Analytic)')
+            phi=potential, charge=chg, cap=cap, profiles=[], name=self.name + ' (Analytic)')
 
 
 class Abrashkin(DoubleLayerModel):
@@ -325,7 +321,7 @@ class Abrashkin(DoubleLayerModel):
         n_sol = self.n_max * self.chi_s * bf_s / denom
         return n_cat, n_an, n_sol
 
-    def ode_rhs(self, x, y):
+    def ode_rhs(self, x, y, p_h=7):
         dy1 = y[1, :]
         n_cat, n_an, n_sol = self.densities(y)
 
@@ -404,8 +400,8 @@ class ProtonLPB(DoubleLayerModel):
         c_bulk = np.zeros((5, 1))
         c_bulk[0] = 10 ** (- p_h)                         # [H+]
         c_bulk[1] = 10 ** (- C.PKW + p_h)                 # [OH-]
-        c_bulk[2] = self.c_0                              # [Cat]
-        c_bulk[3] = self.c_0 + c_bulk[0] - c_bulk[1]      # [An]
+        c_bulk[2] = self.c_0 - c_bulk[0]                  # [Cat]
+        c_bulk[3] = c_bulk[0] + c_bulk[2] - c_bulk[1]     # [An]
         c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
         n_bulk = c_bulk * 1e3 * C.N_A
 
@@ -426,7 +422,7 @@ class ProtonLPB(DoubleLayerModel):
 
         return n_profile
 
-    def get_omega(self, sol_y: np.ndarray, p_h: float):
+    def get_denominator(self, sol_y: np.ndarray, p_h: float):
         """
         Get denominator of densities
         """
@@ -451,12 +447,6 @@ class ProtonLPB(DoubleLayerModel):
         # Compute denominator
         denom = np.sum(self.gammas * chi * bfs, axis=0)
         return denom
-
-    def get_lambda_ode_rhs(self, p_h):
-        """
-        Get the ODE RHS as a lambda function to pass to Scipy's solve_bvp, given a pH
-        """
-        return lambda x, y: self.ode_rhs(x, y, p_h)
 
     def ode_rhs(self, x, y, p_h: float=7):
         dy1 = y[1, :]
@@ -504,7 +494,7 @@ class ProtonLPB(DoubleLayerModel):
 
         return ret
 
-    def get_insulator_bc_lambda(self, p_h):
+    def insulator_bc_lambda(self, p_h):
         """
         Return a boundary condition function to pass to scipy's solve_bvp
         """
@@ -525,7 +515,7 @@ class ProtonLPB(DoubleLayerModel):
                 + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
                 * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_arr[0])
         else:
-            KW = C.K_WATER / self.get_omega(ya.reshape(2, 1), p_h)
+            KW = C.K_WATER / self.get_denominator(ya.reshape(2, 1), p_h)
             left = - 2 * eps_r * ya[1] \
                 + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
                 * k_fraction(KW / C.K_SILICA_B, KW / C.K_SILICA_A, c_arr[1])
@@ -533,46 +523,47 @@ class ProtonLPB(DoubleLayerModel):
 
         return np.array([left.squeeze(), right])
 
-    def sequential_solve_ins(self, ph_range: np.ndarray, tol: float=1e-3):
+    def insulator_sequential_solve(self,
+                         ph_range: np.ndarray,
+                         tol: float=1e-3):
         """
-        Sweep over a potential array and use the previous solution as initial
-        condition for the next.
+        Sweep over a boundary condition parameter array (potential, pH) and use the previous
+        solution as initial condition for the next. The initial condition assumes that we
+        start at the PZC.
 
-        Returns: charge for each potential; last solution
+        Returns: charge for each parameter; list of SpatialProfilesSolutions
         """
         chg = np.zeros(ph_range.shape)
         phi = np.zeros(ph_range.shape)
-        c_h = np.zeros(ph_range.shape)
+        profile_list = []
         max_res = np.zeros(ph_range.shape)
 
-        x_axis = self.create_x_mesh(50, 1000)
+        x_axis = self.create_x_mesh(100, 1000)
         y_initial = np.zeros((2, x_axis.shape[0]))
-
-        last_profiles = None
 
         for i, p_h in enumerate(ph_range):
             sol = solve_bvp(
-                self.get_lambda_ode_rhs(p_h),
-                self.get_insulator_bc_lambda(p_h),
+                self.ode_lambda(p_h),
+                self.insulator_bc_lambda(p_h),
                 x_axis,
                 y_initial,
                 tol=tol,
                 max_nodes=int(1e8),
                 verbose=0)
-            last_profiles = self.compute_profiles(sol, p_h)
-            chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
-            phi[i] = last_profiles.phi[0]
-            c_h[i] = last_profiles.c_dict[r'H$^+$'][0]
+            prf = self.compute_profiles(sol, p_h)
+            chg[i] = prf.efield[0] * C.EPS_0 * prf.eps[0]
+            phi[i] = prf.phi[0]
             max_res[i] = np.max(sol.rms_residuals)
+            profile_list.append(prf)
 
             x_axis = sol.x
             y_initial = sol.y
 
         print(f"Sweep from pH {ph_range[0]:.2f} to {ph_range[-1]:.2f}. " \
             + f"Maximum relative residual: {np.max(max_res):.5e}.")
-        return phi, chg, c_h, last_profiles
+        return chg, phi, profile_list
 
-    def sweep_ins(self, ph_range: np.ndarray, tol: float=1e-3):
+    def ph_sweep(self, ph_range: np.ndarray, tol: float=1e-3):
         """
         Numerical solution to a potential sweep for a defined double-layer model.
         """
@@ -582,92 +573,31 @@ class ProtonLPB(DoubleLayerModel):
 
         chg = np.zeros(ph_range.shape)
         phi = np.zeros(ph_range.shape)
-        c_h = np.zeros(ph_range.shape)
 
-        phi_neg, chg_neg, c_h_neg, _ = self.sequential_solve_ins(ph_range[i_pzc::-1], tol)
+        chg_neg, phi_neg, profiles_neg = self.insulator_sequential_solve(
+            ph_range[i_pzc::-1],
+            tol)
         chg[:i_pzc+1] = chg_neg[::-1]
         phi[:i_pzc+1] = phi_neg[::-1]
-        c_h[:i_pzc+1] = c_h_neg[::-1]
-        phi[i_pzc:], chg[i_pzc:], c_h[i_pzc:], _ = self.sequential_solve_ins(ph_range[i_pzc::1],
-                                                                             tol)
+        chg[i_pzc:], phi[i_pzc:], profiles_pos = self.insulator_sequential_solve(
+            ph_range[i_pzc::1],
+            tol)
         cap = np.gradient(chg, edge_order=2)/np.gradient(phi) * 1e2
-        return PhSweepSolution(phi=phi, charge=chg, cap=cap, c_h=c_h, name=self.name)
 
-    def spatial_profiles_ins(self, p_h: float, tol: float=1e-3):
+        sol = PotentialSweepSolution(phi=phi,
+                                     charge=chg,
+                                     cap=cap,
+                                     profiles=profiles_neg[::-1] + profiles_pos,
+                                     name=self.name)
+        return sol
+
+    def insulator_spatial_profiles(self, p_h: float, tol: float=1e-3):
         """
         Get spatial profiles solution struct.
         """
         ph_pzc = -1/2 * np.log10(C.K_SILICA_A*C.K_SILICA_B)
         sign = (p_h - ph_pzc)/abs(p_h - ph_pzc)
-        _, _, _, profiles = self.sequential_solve_ins(np.arange(ph_pzc, p_h, sign*0.01), tol)
-        return profiles
-
-    def odesolve_dirichlet(self,
-            x_axis: np.ndarray,
-            y_initial: np.ndarray,
-            phi0: float,
-            tol: float=1e-3,
-            p_h: float=7):
-        """
-        Wrapper for scipy's solve_bvp, using the class methods
-        """
-        sol = solve_bvp(
-            self.get_lambda_ode_rhs(p_h),
-            self.dirichlet(phi0),
-            x_axis,
-            y_initial,
-            tol=tol,
-            max_nodes=int(1e8),
-            verbose=0)
-        return sol
-
-    def sequential_solve(self, potential: np.ndarray, tol: float=1e-3, p_h: float=7):
-        """
-        Sweep over a potential array and use the previous solution as initial
-        condition for the next.
-
-        Returns: charge for each potential; last solution
-        """
-        chg = np.zeros(potential.shape)
-        max_res = np.zeros(potential.shape)
-
-        x_axis = self.create_x_mesh(100, 1000)
-        y_initial = np.zeros((2, x_axis.shape[0]))
-
-        last_profiles = None
-
-        for i, phi in enumerate(potential):
-            sol = self.odesolve_dirichlet(x_axis, y_initial, phi, tol=tol, p_h=p_h)
-            last_profiles = self.compute_profiles(sol, p_h=p_h)
-            chg[i] = last_profiles.efield[0] * C.EPS_0 * last_profiles.eps[0]
-            max_res[i] = np.max(sol.rms_residuals)
-
-            x_axis = sol.x
-            y_initial = sol.y
-
-        print(f"Sweep from {potential[0]:.2f}V to {potential[-1]:.2f}V. " \
-            + f"Maximum relative residual: {np.max(max_res):.5e}.")
-        return chg, last_profiles
-
-    def sweep(self, potential: np.ndarray, tol: float=1e-3, p_h: float=7):
-        """
-        Numerical solution to a potential sweep for a defined double-layer model.
-        """
-        # Find potential closest to PZC
-        i_pzc = np.argmin(np.abs(potential)).squeeze()
-
-        chg = np.zeros(potential.shape)
-        chg_neg, _ = self.sequential_solve(potential[i_pzc::-1], tol, p_h)
-        chg[:i_pzc+1] = chg_neg[::-1]
-        chg[i_pzc:], _ = self.sequential_solve(potential[i_pzc::1], tol, p_h)
-
-        cap = np.gradient(chg, edge_order=2)/np.gradient(potential) * 1e2
-        return PotentialSweepSolution(phi=potential, charge=chg, cap=cap, name=self.name)
-
-    def spatial_profiles(self, phi0: float, tol: float=1e-3, p_h: float=7):
-        """
-        Get spatial profiles solution struct.
-        """
-        sign = phi0/abs(phi0)
-        _, profiles = self.sequential_solve(np.arange(0, phi0, sign*0.01), tol, p_h)
-        return profiles
+        _, _, profiles = self.insulator_sequential_solve(
+            np.arange(ph_pzc, p_h, sign*0.01),
+            tol)
+        return profiles[-1]
