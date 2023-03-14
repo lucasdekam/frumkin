@@ -392,9 +392,9 @@ class ProtonLPB(DoubleLayerModel):
 
         self.name = f'pH-LPB {self.c_0:.3f}M {gamma_c:.1f}-{gamma_a:.1f}'
 
-    def densities(self, sol_y: np.ndarray, p_h: float):
+    def bulk_densities(self, p_h: float):
         """
-        Compute cation, anion and solvent densities.
+        Compute bulk cation, anion and solvent densities.
         """
         # Compute bulk number densities
         c_bulk = np.zeros((5, 1))
@@ -404,17 +404,28 @@ class ProtonLPB(DoubleLayerModel):
         c_bulk[3] = c_bulk[0] + c_bulk[2] - c_bulk[1]     # [An]
         c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
         n_bulk = c_bulk * 1e3 * C.N_A
+        return n_bulk
 
-        # Compute chi for each species
-        chi = n_bulk / self.n_max
-
-        # General case: compute Boltzmann factors
+    def boltzmann_factors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors.
+        """
         bf_pos = np.exp(-sol_y[0, :])
         bf_neg = np.exp(+sol_y[0, :])
         bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
         bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
+        return bfs
+
+    def densities(self, sol_y: np.ndarray, p_h: float):
+        """
+        Compute cation, anion and solvent densities.
+        """
+        # Compute occupied volume fraction chi for each species
+        n_bulk = self.bulk_densities(p_h)
+        chi = n_bulk / self.n_max
 
         # Compute denominator
+        bfs = self.boltzmann_factors(sol_y)
         denom = np.sum(self.gammas * chi * bfs, axis=0)
 
         # Compute profiles
@@ -426,26 +437,12 @@ class ProtonLPB(DoubleLayerModel):
         """
         Get denominator of densities
         """
-        # Compute bulk number densities
-        c_bulk = np.zeros((5, 1))
-        c_bulk[0] = 10 ** (- p_h)                         # [H+]
-        c_bulk[1] = 10 ** (- C.PKW + p_h)                 # [OH-]
-        c_bulk[2] = self.c_0                              # [Cat]
-        c_bulk[3] = self.c_0 + c_bulk[0] - c_bulk[1]      # [An]
-        c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk) # [H2O]
-        n_bulk = c_bulk * 1e3 * C.N_A
-
-        # Compute chi for each species
+        n_bulk = self.bulk_densities(p_h)
         chi = n_bulk / self.n_max
 
-        # General case: compute Boltzmann factors
-        bf_pos = np.exp(-sol_y[0, :])
-        bf_neg = np.exp(+sol_y[0, :])
-        bf_sol = L.sinh_x_over_x(self.p_tilde * sol_y[1, :])
-        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol]) # shape (5, ...)
-
-        # Compute denominator
+        bfs = self.boltzmann_factors(sol_y)
         denom = np.sum(self.gammas * chi * bfs, axis=0)
+
         return denom
 
     def ode_rhs(self, x, y, p_h: float=7):
