@@ -503,19 +503,23 @@ class ProtonLPB(DoubleLayerModel):
         """
         #pylint: disable=invalid-name
         n_arr = self.densities(ya.reshape(2, 1), p_h)
-        c_arr = n_arr / 1e3 / C.N_A
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
-        left = None
-        if p_h < 4.0:
-            left = 2 * eps_r * ya[1] \
-                + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-                * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_arr[0])
-        else:
-            KW = C.K_WATER / self.get_denominator(ya.reshape(2, 1), p_h)
-            left = - 2 * eps_r * ya[1] \
-                + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-                * k_fraction(KW / C.K_SILICA_B, KW / C.K_SILICA_A, c_arr[1])
+        c_bulk_arr = self.bulk_densities(p_h) / 1e3 / C.N_A
+
+        left = 2 * eps_r * ya[1] \
+            + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+            * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0]))
+
+        # left = None
+        # if p_h < 7.0:
+        #     left = 2 * eps_r * ya[1] \
+        #         + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+        #         * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0]))
+        # else:
+        #     left = - 2 * eps_r * ya[1] \
+        #         + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+        #         * k_fraction(C.K_WATER/C.K_SILICA_A, C.K_WATER/C.K_SILICA_B, c_bulk_arr[1] * np.exp(ya[0]))
         right = yb[0]
 
         return np.array([left.squeeze(), right])
