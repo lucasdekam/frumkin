@@ -420,16 +420,8 @@ class ProtonLPB(DoubleLayerModel):
         """
         Compute cation, anion and solvent densities.
         """
-        # Compute occupied volume fraction chi for each species
-        n_bulk = self.bulk_densities(p_h)
-        chi = n_bulk / self.n_max
-
-        # Compute denominator
-        bfs = self.boltzmann_factors(sol_y)
-        denom = np.sum(self.gammas * chi * bfs, axis=0)
-
-        # Compute profiles
-        n_profile = n_bulk * bfs / denom
+        n_profile = self.bulk_densities(p_h) \
+            * self.boltzmann_factors(sol_y) / self.get_denominator(sol_y, p_h)
 
         return n_profile
 
@@ -511,15 +503,12 @@ class ProtonLPB(DoubleLayerModel):
             + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
             * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0]))
 
-        # left = None
-        # if p_h < 7.0:
-        #     left = 2 * eps_r * ya[1] \
-        #         + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-        #         * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0]))
-        # else:
-        #     left = - 2 * eps_r * ya[1] \
-        #         + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-        #         * k_fraction(C.K_WATER/C.K_SILICA_A, C.K_WATER/C.K_SILICA_B, c_bulk_arr[1] * np.exp(ya[0]))
+        # KA1 = 10 ** (-6.8)
+        # KA2 = 10 ** (-7.1)
+
+        # left = 2 * eps_r * ya[1] \
+        #     - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+        #     * KA1 / (c_bulk_arr[0] * np.exp(-ya[0]) + KA1 + KA2 * c_bulk_arr[2])
         right = yb[0]
 
         return np.array([left.squeeze(), right])
