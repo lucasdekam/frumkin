@@ -74,7 +74,7 @@ class DoubleLayerModel:
         return self.kappa_debye * 1e-9 * x_nm
 
     @abstractmethod
-    def ode_rhs(self, x, y, p_h=7):  # pylint: disable=unused-argument, invalid-name
+    def ode_rhs(self, x, y, p_h):  # pylint: disable=unused-argument, invalid-name
         """
         Function to pass to ODE solver, specifying the right-hand side of the
         system of dimensionless 1st order ODE's that we solve.
@@ -82,18 +82,26 @@ class DoubleLayerModel:
         y: dimensionless potential phi and dphi/dx, size 2 x n.
         """
 
-    def ode_lambda(self, p_h=7):
+    def ode_lambda(self, p_h):
         """
         Get an ODE RHS function to pass to Scipy's solve_bvp; using lambda gives
         the possibility to include specific parameters like pH in derived classes
         """
         return lambda x, y: self.ode_rhs(x, y, p_h)
 
-    def dirichlet_lambda(self, phi0):
+    # def dirichlet_lambda(self, phi0):
+    #     """
+    #     Return a boundary condition function to pass to scipy's solve_bvp
+    #     """
+    #     return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
+
+    def dirichlet_lambda(self, phi0, p_h=7): #pylint: disable=unused-argument
         """
         Return a boundary condition function to pass to scipy's solve_bvp
         """
-        return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
+        return lambda ya, yb: np.array(
+            [ya[0] - C.BETA * C.Z * C.E_0 * phi0 - ya[1] * self.kappa_debye * C.D_ADSORBATE_LAYER,
+             yb[0]])
 
     def potential_sequential_solve(self,
                          ode_lambda: callable,
@@ -117,13 +125,13 @@ class DoubleLayerModel:
         for i, phi in enumerate(potential):
             sol = solve_bvp(
                 ode_lambda(p_h),
-                self.dirichlet_lambda(phi),
+                self.dirichlet_lambda(phi, p_h),
                 x_axis,
                 y_initial,
                 tol=tol,
                 max_nodes=int(1e8),
                 verbose=0)
-            prf = self.compute_profiles(sol)
+            prf = self.compute_profiles(sol, p_h)
             chg[i] = prf.efield[0] * C.EPS_0 * prf.eps[0]
             max_res[i] = np.max(sol.rms_residuals)
             profile_list.append(prf)
@@ -135,7 +143,7 @@ class DoubleLayerModel:
             + f"Maximum relative residual: {np.max(max_res):.5e}.")
         return chg, profile_list
 
-    def potential_sweep(self, potential: np.ndarray, tol: float=1e-3, p_h=7):
+    def potential_sweep(self, potential: np.ndarray, tol: float=1e-3, p_h: float=7):
         """
         Numerical solution to a potential sweep for a defined double-layer model.
         """
@@ -162,7 +170,7 @@ class DoubleLayerModel:
                                      name=self.name)
         return sol
 
-    def spatial_profiles(self, phi0: float, tol: float=1e-3, p_h=7):
+    def spatial_profiles(self, phi0: float, p_h: float, tol: float=1e-3):
         """
         Get spatial profiles solution struct.
         """
@@ -174,7 +182,7 @@ class DoubleLayerModel:
         return profiles[-1]
 
     @abstractmethod
-    def compute_profiles(self, sol) -> SpatialProfilesSolution:
+    def compute_profiles(self, sol, p_h) -> SpatialProfilesSolution:
         """
         Convert a dimensionless scipy solution into dimensional spatial
         profiles
@@ -190,12 +198,12 @@ class GouyChapman(DoubleLayerModel):
         super().__init__(ion_concentration_molar)
         self.name = f'Gouy-Chapman {self.c_0:.3f}M'
 
-    def ode_rhs(self, x, y, p_h=7):
+    def ode_rhs(self, x, y, p_h):
         dy1 = y[1, :]
         dy2 = np.sinh(y[0, :])
         return np.vstack([dy1, dy2])
 
-    def compute_profiles(self, sol):
+    def compute_profiles(self, sol, p_h):
         ret = SpatialProfilesSolution(
             x=sol.x / self.kappa_debye * 1e9,
             phi=sol.y[0, :] / (C.BETA * C.Z * C.E_0),
@@ -235,12 +243,12 @@ class Borukhov(DoubleLayerModel):
         self.n_max = 1/a_m**3
         self.name = f'Borukhov {self.c_0:.3f}M {a_m*1e10:.1f}Å'
 
-    def ode_rhs(self, x, y, p_h=7):
+    def ode_rhs(self, x, y, p_h):
         dy1 = y[1, :]
         dy2 = np.sinh(y[0, :]) / (1 - self.chi_0 + self.chi_0 * np.cosh(y[0, :]))
         return np.vstack([dy1, dy2])
 
-    def compute_profiles(self, sol):
+    def compute_profiles(self, sol, p_h):
         bf_c = np.exp(-sol.y[0, :])
         bf_a = np.exp(sol.y[0, :])
         denom = 1 - self.chi_0 + self.chi_0 * np.cosh(sol.y[0, :])
@@ -321,7 +329,7 @@ class Abrashkin(DoubleLayerModel):
         n_sol = self.n_max * self.chi_s * bf_s / denom
         return n_cat, n_an, n_sol
 
-    def ode_rhs(self, x, y, p_h=7):
+    def ode_rhs(self, x, y, p_h):
         dy1 = y[1, :]
         n_cat, n_an, n_sol = self.densities(y)
 
@@ -349,7 +357,7 @@ class Abrashkin(DoubleLayerModel):
                self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
                L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
-    def compute_profiles(self, sol):
+    def compute_profiles(self, sol, p_h):
         n_cat, n_an, n_sol = self.densities(sol.y)
 
         # Return solution struct
@@ -437,7 +445,7 @@ class ProtonLPB(DoubleLayerModel):
 
         return denom
 
-    def ode_rhs(self, x, y, p_h: float=7):
+    def ode_rhs(self, x, y, p_h):
         dy1 = y[1, :]
         n_arr = self.densities(y, p_h)
 
@@ -463,7 +471,7 @@ class ProtonLPB(DoubleLayerModel):
                self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
                L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
-    def compute_profiles(self, sol, p_h: float=7):
+    def compute_profiles(self, sol, p_h: float):
         n_arr = self.densities(sol.y, p_h)
 
         # Return solution struct
