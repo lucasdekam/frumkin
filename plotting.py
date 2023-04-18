@@ -132,11 +132,11 @@ def plot_potential_sweep(sols: list):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4), sharex=True)
 
     for sol in sols:
-        ax[0].plot(sol.phi, sol.charge, label=sol.name)
-    ax[0].set_ylabel(r'$\sigma$ [C/m$^2$]')
+        ax[0].plot(sol.phi, sol.charge * 1e2, label=sol.name)
+    ax[0].set_ylabel(r'$\sigma$ [$\mu$C/cm$^2$]')
     ax[0].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[0].legend()
-    ax[0].set_ylim([-0.6, 0.6])
+    ax[0].set_ylim([-50, 50])
 
     for sol in sols:
         ax[1].plot(sol.phi, sol.cap, label=sol.name)
