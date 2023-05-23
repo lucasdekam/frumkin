@@ -147,3 +147,40 @@ def plot_potential_sweep(sols: list):
 
     plt.tight_layout()
     return fig, ax
+
+def get_color_gradient(array: np.ndarray):
+    """
+    Get a light blue to dark blue color gradient in the form of
+    an array of RGB tuples
+    [(r1, g1, b1), ..., (rn, gn, bn)]
+    """
+    red = np.linspace(3, 2, len(array))[::-1]/255
+    gre = np.linspace(57, 242, len(array))[::-1]/255
+    blu = np.linspace(143, 250, len(array))[::-1]/255
+
+    return [(red[i], gre[i], blu[i]) for i in range(len(array))]
+
+def plot_current(current_sweeps: np.ndarray,
+                 potential_range: np.ndarray,
+                 parameter_range: np.ndarray,
+                 parameter_symbol: str,
+                 parameter_scaling: float,
+                 parameter_unit: str,
+                 ylabel: str=r'$j/|j_\mathrm{max}|$',
+                 xlabel: str=r'$\phi_0$ [V] vs. RHE'):
+    """
+    Plot kinetics
+    currents: shape (len(parameter_range), len(potential_range))
+    """
+    fig, ax = plt.subplots(figsize=(4,3))
+    for i, current in enumerate(current_sweeps):
+        ax.plot(potential_range, current,
+                color=get_color_gradient(parameter_range)[i],
+                label=rf'{parameter_symbol}=' + \
+                rf'{parameter_range[i]*parameter_scaling:.0f} {parameter_unit}')
+    ax.legend()
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    plt.tight_layout()
+    return fig, ax
