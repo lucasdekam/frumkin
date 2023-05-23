@@ -164,8 +164,8 @@ def plot_current(current_sweeps: np.ndarray,
                  potential_range: np.ndarray,
                  parameter_range: np.ndarray,
                  parameter_symbol: str,
-                 parameter_scaling: float,
-                 parameter_unit: str,
+                 parameter_scaling: float=1,
+                 parameter_unit: str='',
                  ylabel: str=r'$j/|j_\mathrm{max}|$',
                  xlabel: str=r'$\phi_0$ [V] vs. RHE'):
     """
