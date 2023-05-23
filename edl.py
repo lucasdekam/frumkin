@@ -109,7 +109,7 @@ class DoubleLayerModel:
                          tol: float=1e-3,
                          p_h: float=7):
         """
-        Sweep over a boundary condition parameter array (potential, pH) and use the previous
+        Sweep over a Dirichlet boundary condition for the potential and use the previous
         solution as initial condition for the next. The initial condition assumes that we
         start at the PZC.
 
@@ -507,16 +507,14 @@ class ProtonLPB(DoubleLayerModel):
 
         c_bulk_arr = self.bulk_densities(p_h) / 1e3 / C.N_A
 
-        left = 2 * eps_r * ya[1] \
-            + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-            * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0]))
-
-        # KA1 = 10 ** (-6.8)
-        # KA2 = 10 ** (-7.1)
-
         # left = 2 * eps_r * ya[1] \
-        #     - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-        #     * KA1 / (c_bulk_arr[0] * np.exp(-ya[0]) + KA1 + KA2 * c_bulk_arr[2])
+        #     + self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+        #     * k_fraction(C.K_SILICA_A, C.K_SILICA_B, c_bulk_arr[0] * np.exp(-ya[0] + ya[1] * self.kappa_debye * C.D_ADSORBATE_LAYER))
+
+        left = 2 * eps_r * ya[1] \
+            - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
+            * C.K_SILICA_A / (C.K_SILICA_A + c_bulk_arr[0] * np.exp(-ya[0] + ya[1] * self.kappa_debye * C.D_ADSORBATE_LAYER))
+
         right = yb[0]
 
         return np.array([left.squeeze(), right])
