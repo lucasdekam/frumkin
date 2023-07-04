@@ -130,7 +130,7 @@ class DoubleLayerModel:
 
         return sweep_df
 
-    def spatial_profiles(self, phi0: float, p_h: float, tol: float=1e-3) -> pd.DataFrame:
+    def spatial_profiles(self, phi0: float, p_h: float=7, tol: float=1e-3) -> pd.DataFrame:
         """
         Get spatial profiles solution struct.
         """
