@@ -306,8 +306,10 @@ class Abrashkin(DoubleLayerModel):
         denom2 = self.p_tilde**2 * n_sol * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
             (self.gamma_c * n_cat + self.gamma_a * n_an) * n_sol/self.n_max
+        denom4 = -self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
+            n_sol**2/(2*self.n_max**2)
 
-        dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
+        dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3 + denom4)
         return np.vstack([dy1, dy2])
 
     def permittivity(self, sol_y):
@@ -415,12 +417,15 @@ class Aqueous(DoubleLayerModel):
         numer1 = np.sum(-self.charge * n_arr, axis=0)
         numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
             np.sum(n_arr * -self.charge * self.gammas, axis=0) * n_arr[4]/self.n_max
-        denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        # denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        denom1 = 2*self.n_max*self.eps_r_opt/C.EPS_R_WATER
         denom2 = self.p_tilde**2 * n_arr[4] * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
             np.sum(n_arr * self.charge**2 * self.gammas, axis=0) * n_arr[4]/self.n_max
+        denom4 = -self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
+            n_arr[4]**2/(2*self.n_max**2)
 
-        dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
+        dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3 + denom4)
         return np.vstack([dy1, dy2])
 
     def permittivity(self, sol_y: np.ndarray, n_sol: np.ndarray):
@@ -429,9 +434,9 @@ class Aqueous(DoubleLayerModel):
         n_sol: solvent number density
         y_1: dimensionless electric field
         """
-        two_nref_over_epsrw = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        # two_nref_over_epsrw = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
         return self.eps_r_opt + \
-               self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
+               C.EPS_R_WATER * self.p_tilde**2 * n_sol / (2*self.n_max) * \
                L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
     def compute_profiles(self, sol, p_h: float):
