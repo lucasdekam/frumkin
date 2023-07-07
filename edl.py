@@ -272,6 +272,9 @@ class Abrashkin(DoubleLayerModel):
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
         n_s_0 = self.n_max - gamma_c * self.n_0 - gamma_a * self.n_0
 
+        self.kappa_debye = np.sqrt(2*self.n_max*(C.Z*C.E_0)**2 /
+                                   (C.EPS_0*C.EPS_R_WATER*C.K_B*C.T))
+
         self.chi = self.n_0 / self.n_max
         self.chi_s = n_s_0 / self.n_max
 
@@ -302,7 +305,7 @@ class Abrashkin(DoubleLayerModel):
         numer1 = n_an - n_cat
         numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
             (self.gamma_a * n_an - self.gamma_c * n_cat) * n_sol/self.n_max
-        denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        denom1 = 2*self.n_max*self.eps_r_opt/C.EPS_R_WATER
         denom2 = self.p_tilde**2 * n_sol * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
             (self.gamma_c * n_cat + self.gamma_a * n_an) * n_sol/self.n_max
@@ -318,9 +321,8 @@ class Abrashkin(DoubleLayerModel):
         """
         sol_y = np.atleast_1d(sol_y).reshape(2, -1)
         _, _, n_sol = self.densities(sol_y)
-        two_nref_over_epsrw = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
         return self.eps_r_opt + \
-               self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
+               C.EPS_R_WATER * self.p_tilde**2 * n_sol / (2*self.n_max) * \
                L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
     def compute_profiles(self, sol, p_h) -> pd.DataFrame:
@@ -415,7 +417,7 @@ class Aqueous(DoubleLayerModel):
         numer1 = np.sum(-self.charge * n_arr, axis=0)
         numer2 = self.p_tilde * y[1, :] * L.langevin_x(self.p_tilde * y[1, :]) * \
             np.sum(n_arr * -self.charge * self.gammas, axis=0) * n_arr[4]/self.n_max
-        denom1 = self.kappa_debye ** 2 * self.eps_r_opt * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
+        denom1 = 2*self.n_max*self.eps_r_opt/C.EPS_R_WATER
         denom2 = self.p_tilde**2 * n_arr[4] * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = self.p_tilde**2 * L.langevin_x(self.p_tilde * y[1, :])**2 * \
             np.sum(n_arr * self.charge**2 * self.gammas, axis=0) * n_arr[4]/self.n_max
@@ -429,9 +431,8 @@ class Aqueous(DoubleLayerModel):
         n_sol: solvent number density
         y_1: dimensionless electric field
         """
-        two_nref_over_epsrw = self.kappa_debye ** 2 * C.EPS_0 / (C.Z * C.E_0)**2 / C.BETA
         return self.eps_r_opt + \
-               self.p_tilde**2 * n_sol / two_nref_over_epsrw * \
+               C.EPS_R_WATER * self.p_tilde**2 * n_sol / (2*self.n_max) * \
                L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
     def compute_profiles(self, sol, p_h: float):
@@ -527,13 +528,6 @@ class Aqueous(DoubleLayerModel):
             tol)
 
         all_profiles = profiles_neg[::-1] + profiles_pos[1:]
-
-        # sweep_df['ph'] = ph_range
-        # sweep_df['charge'] = sweep_df['efield'].values * C.EPS_0 * sweep_df['eps'].values
-        # sweep_df['capacity'] = np.gradient(sweep_df['charge'].values, edge_order=2) \
-        #     / np.gradient(sweep_df['phi'].values)
-
-        # return sweep_df
 
         # Create dataframe with interface values (iloc[0]) to return
         sweep_df = pd.concat(
