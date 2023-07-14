@@ -116,7 +116,7 @@ def plot_solutions(
     return fig, ax
 
 
-def plot_potential_sweep(sols: list):
+def plot_potential_sweep(sols: list[pd.DataFrame]):
     """
     Plot charge and differential capacitance
     """
@@ -124,14 +124,14 @@ def plot_potential_sweep(sols: list):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4), sharex=True)
 
     for sol in sols:
-        ax[0].plot(sol.phi, sol.charge * 1e2, label=sol.name)
+        ax[0].plot(sol['phi0'], sol['charge'] * 1e2, label=sol.index.name)
     ax[0].set_ylabel(r'$\sigma$ [$\mu$C/cm$^2$]')
     ax[0].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[0].legend()
     ax[0].set_ylim([-50, 50])
 
     for sol in sols:
-        ax[1].plot(sol.phi, sol.cap, label=sol.name)
+        ax[1].plot(sol['phi0'], sol['capacity'] * 1e2, label=sol.index.name)
     ax[1].set_ylabel(r'Capacitance [$\mu$F/cm$^2$]')
     ax[1].set_xlabel(r'$\phi$ [V vs. PZC]')
     ax[1].legend()
@@ -167,7 +167,7 @@ def plot_current(current_sweeps: np.ndarray,
     fig, ax = plt.subplots(figsize=(4,3))
     for i, current in enumerate(current_sweeps):
         ax.plot(potential_range, current,
-                color=get_color_gradient(parameter_range)[i],
+                color=get_color_gradient(len(parameter_range))[i],
                 label=rf'{parameter_symbol}=' + \
                 rf'{parameter_range[i]*parameter_scaling:.0f} {parameter_unit}')
     ax.legend()

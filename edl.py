@@ -182,7 +182,7 @@ class GouyChapman(DoubleLayerModel):
         potential: potential array in V
         """
         cap = self.kappa_debye * C.EPS_R_WATER * C.EPS_0 * \
-            np.cosh(C.BETA*C.Z*C.E_0 * potential / 2) * 1e2
+            np.cosh(C.BETA*C.Z*C.E_0 * potential / 2) 
         chg = np.sqrt(8 * self.n_0 * C.K_B * C.T * C.EPS_R_WATER * C.EPS_0) * \
             np.sinh(C.BETA * C.Z * C.E_0 * potential / 2)
 
@@ -241,8 +241,7 @@ class Borukhov(DoubleLayerModel):
         cap = np.sqrt(2) * self.kappa_debye * C.EPS_R_WATER * C.EPS_0 / np.sqrt(self.chi_0) \
             * self.chi_0 * np.sinh(np.abs(y_0)) \
             / (self.chi_0 * np.cosh(y_0) - self.chi_0 + 1) \
-            / (2*np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1))) \
-            * 1e2 # uF/cm^2
+            / (2*np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1))) # F/m^2
 
         sweep_df = pd.DataFrame({
             'phi0' : potential,
