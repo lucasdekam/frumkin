@@ -551,6 +551,6 @@ class Aqueous(DoubleLayerModel):
         ph_pzc = -1/2 * np.log10(C.K_SILICA_A*C.K_SILICA_B)
         sign = (p_h - ph_pzc)/abs(p_h - ph_pzc)
         profiles = self.insulator_sequential_solve(
-            np.arange(ph_pzc, p_h, sign*0.01),
+            np.arange(ph_pzc, p_h, sign*0.1),
             tol)
         return profiles[-1]
