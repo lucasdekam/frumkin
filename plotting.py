@@ -140,15 +140,22 @@ def plot_potential_sweep(sols: list[pd.DataFrame]):
     plt.tight_layout()
     return fig, ax
 
-def get_color_gradient(size: int):
+def get_color_gradient(size: int, color='blue'):
     """
     Get a light blue to dark blue color gradient in the form of
     an array of RGB tuples
     [(r1, g1, b1), ..., (rn, gn, bn)]
     """
-    red = np.linspace(3, 2, size)[::-1]/255
-    gre = np.linspace(57, 242, size)[::-1]/255
-    blu = np.linspace(143, 250, size)[::-1]/255
+    if color=='blue':
+        red = np.linspace(3, 2, size)[::-1]/255
+        gre = np.linspace(57, 242, size)[::-1]/255
+        blu = np.linspace(143, 250, size)[::-1]/255
+    elif color=='green':
+        red = np.linspace(21, 97, size)[::-1]/255
+        gre = np.linspace(99, 214, size)[::-1]/255
+        blu = np.linspace(9, 79, size)[::-1]/255
+    else:
+        return None
 
     return [(red[i], gre[i], blu[i]) for i in range(size)]
 

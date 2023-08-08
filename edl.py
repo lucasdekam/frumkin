@@ -5,7 +5,7 @@ from abc import abstractmethod
 
 import numpy as np
 import pandas as pd
-from scipy.integrate import solve_bvp
+from scipy.integrate import solve_bvp, cumulative_trapezoid
 
 import constants as C
 import langevin as L
@@ -171,6 +171,8 @@ class GouyChapman(DoubleLayerModel):
             'cations': self.c_0 * np.exp(-sol.y[0, :]),
             'anions': self.c_0 * np.exp(sol.y[0, :]),
             'eps': np.ones(sol.x.shape) * C.EPS_R_WATER})
+        result['charge density'] = C.E_0 * C.N_A * (result['cations'] - result['anions'])
+        result['pressure'] = cumulative_trapezoid(result['charge density'][::-1] * result['efield'][::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
         result.index.name = self.name
         return result
 
@@ -182,7 +184,7 @@ class GouyChapman(DoubleLayerModel):
         potential: potential array in V
         """
         cap = self.kappa_debye * C.EPS_R_WATER * C.EPS_0 * \
-            np.cosh(C.BETA*C.Z*C.E_0 * potential / 2) 
+            np.cosh(C.BETA*C.Z*C.E_0 * potential / 2)
         chg = np.sqrt(8 * self.n_0 * C.K_B * C.T * C.EPS_R_WATER * C.EPS_0) * \
             np.sinh(C.BETA * C.Z * C.E_0 * potential / 2)
 
@@ -223,6 +225,8 @@ class Borukhov(DoubleLayerModel):
             'cations': self.c_0 * bf_c / denom,
             'anions': self.c_0 * bf_a / denom,
             'eps': np.ones(sol.x.shape) * C.EPS_R_WATER})
+        result['charge density'] = C.E_0 * C.N_A * (result['cations'] - result['anions'])
+        result['pressure'] = cumulative_trapezoid(result['charge density'][::-1] * result['efield'][::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
         result.index.name = self.name
 
         return result
@@ -335,6 +339,8 @@ class Abrashkin(DoubleLayerModel):
             'anions': n_an/1e3/C.N_A,
             'solvent': n_sol/1e3/C.N_A,
             'eps': self.permittivity(sol.y)})
+        result['charge density'] = C.E_0 * C.N_A * (result['cations'] - result['anions'])
+        result['pressure'] = cumulative_trapezoid(result['charge density'][::-1] * result['efield'][::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
         result.index.name = self.name
 
         return result
@@ -446,7 +452,9 @@ class Aqueous(DoubleLayerModel):
             'cations': n_arr[2]/1e3/C.N_A,
             'anions': n_arr[3]/1e3/C.N_A,
             'solvent': n_arr[4]/1e3/C.N_A,
-            'eps': self.permittivity(sol.y, n_arr[4])})
+            'eps': self.permittivity(sol.y, n_arr[4]),
+            'charge density': C.E_0 * np.sum(n_arr * self.charge, axis=0)})
+        result['pressure'] = cumulative_trapezoid(result['charge density'][::-1] * result['efield'][::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
         result.index.name = self.name
 
         return result
