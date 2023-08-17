@@ -454,7 +454,8 @@ class Aqueous(DoubleLayerModel):
             'solvent': n_arr[4]/1e3/C.N_A,
             'eps': self.permittivity(sol.y, n_arr[4]),
             'charge density': C.E_0 * np.sum(n_arr * self.charge, axis=0)})
-        result['pressure'] = cumulative_trapezoid(result['charge density'][::-1] * result['efield'][::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
+        grad_pressure = result['charge density'] * result['efield'] + (result['eps'] - 1) * C.EPS_0 * result['efield'] * np.gradient(result['efield'], result['x']*1e-9)
+        result['pressure'] = cumulative_trapezoid(grad_pressure[::-1], x=result['x'][::-1]*1e-9, initial=0)[::-1]
         result.index.name = self.name
 
         return result
