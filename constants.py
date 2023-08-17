@@ -17,8 +17,9 @@ K_SILICA_B = 10 ** (2)      # equilibrium constant silica low pH, molar
 K_WATER = 10 ** (-14)       # equilibrium constant water dissociation, molar^2
 PKW = 14                    # -log water constant
 N_WATER = 1.33              # refractive index of water
-D_ADSORBATE_LAYER = 2.75e-10   # adsorbate layer/Stern layer thickness, m
+# D_ADSORBATE_LAYER = 2.75e-10   # adsorbate layer/Stern layer thickness, m
+D_ADSORBATE_LAYER = 3.1e-10   # adsorbate layer/Stern layer thickness, m
 
 # Kinetics
-AU_PZC_SHE_V = 0.474        # PZC for Au(111) in V vs. SHE
+AU_PZC_SHE_V = 0.2          # PZC for Au(111) in V vs. SHE
 PT_PZC_SHE_V = 1            # PZC for Pt(111) in V vs. SHE (approximately)
