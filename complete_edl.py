@@ -69,7 +69,7 @@ class Aqueous:
         for i, phi in enumerate(potential):
             sol = solve_bvp(
                 ode_lambda(p_h),
-                self.dirichlet_lambda(phi, p_h),
+                self.dirichlet_lambda(phi),
                 x_axis,
                 y_initial,
                 tol=tol,
@@ -135,20 +135,27 @@ class Aqueous:
                                                       p_h=p_h)
         return profiles[-1]
 
-
-    def dirichlet_lambda(self, phi0, p_h=7): #pylint: disable=unused-argument
+    def get_stern_layer_thickness(self, phi0):
         """
-        Return a boundary condition function to pass to scipy's solve_bvp
+        Calculate the thickness of the Stern layer as half of the effective ion size
         """
-        # old: return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
         half_ctrion_thickness = None
         if phi0 < 0:
             half_ctrion_thickness = 1/2 * (self.gammas[2,0] / self.n_max) ** (1/3)
         else:
             half_ctrion_thickness = 1/2 * (self.gammas[3,0] / self.n_max) ** (1/3)
+        return half_ctrion_thickness
+
+    def dirichlet_lambda(self, phi0):
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        # old: return lambda ya, yb: np.array([ya[0] - C.BETA * C.Z * C.E_0 * phi0, yb[0]])
         return lambda ya, yb: np.array(
-            [ya[0] - C.BETA * C.Z * C.E_0 * phi0 - ya[1] * self.kappa_debye * half_ctrion_thickness,
-             yb[0]])
+            [ya[0] - C.BETA * C.Z * C.E_0 * phi0 \
+             - ya[1] * self.kappa_debye * self.get_stern_layer_thickness(phi0),
+             yb[0]
+            ])
 
 
     def bulk_densities(self, p_h: float):
@@ -196,7 +203,7 @@ class Aqueous:
 
         return denom
 
-    def ode_rhs(self, x, y, p_h):
+    def ode_rhs(self, x, y, p_h): #pylint: disable=unused-argument
         """
         ode rhs to be solved by solve_bvp
         """
@@ -264,7 +271,9 @@ class Aqueous:
 
         left = 2 * eps_r * ya[1] \
             - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max \
-            * C.K_SILICA_A / (C.K_SILICA_A + c_bulk_arr[0] * np.exp(-ya[0] + ya[1] * self.kappa_debye * C.D_ADSORBATE_LAYER))
+            * C.K_SILICA_A / (C.K_SILICA_A + c_bulk_arr[0] * \
+                              np.exp(-ya[0] + ya[1] * self.kappa_debye * \
+                                     self.get_stern_layer_thickness(ya[0])))
 
         right = yb[0]
 
