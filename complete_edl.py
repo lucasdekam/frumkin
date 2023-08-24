@@ -32,10 +32,7 @@ class Aqueous:
 
         self.eps_r_opt = eps_r_opt
         self.kappa_debye = np.sqrt(
-            2
-            * self.n_max
-            * (C.Z * C.E_0) ** 2
-            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * C.T)
+            self.n_max * (C.E_0) ** 2 / (C.EPS_0 * C.EPS_R_WATER * C.K_B * C.T)
         )
 
         p_water = np.sqrt(
@@ -241,7 +238,7 @@ class Aqueous:
             * n_arr[4]
             / self.n_max
         )
-        denom1 = 2 * self.n_max * self.eps_r_opt / C.EPS_R_WATER
+        denom1 = self.n_max * self.eps_r_opt / C.EPS_R_WATER
         denom2 = self.p_tilde**2 * n_arr[4] * L.d_langevin_x(self.p_tilde * y[1, :])
         denom3 = (
             self.p_tilde**2
@@ -261,7 +258,7 @@ class Aqueous:
         y_1: dimensionless electric field
         """
         return self.eps_r_opt + C.EPS_R_WATER * self.p_tilde**2 * n_sol / (
-            2 * self.n_max
+            self.n_max
         ) * L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
 
     def compute_profiles(self, sol, p_h: float) -> pd.DataFrame:
@@ -315,7 +312,7 @@ class Aqueous:
 
         c_bulk_arr = self.bulk_densities(p_h) / 1e3 / C.N_A
 
-        left = 2 * eps_r * ya[
+        left = eps_r * ya[
             1
         ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max * C.K_SILICA_A / (
             C.K_SILICA_A
