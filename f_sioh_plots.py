@@ -49,7 +49,7 @@ for i, conc in enumerate(CONC_RANGE):
         C.N_SITES_SILICA + silica_sol["charge"] / C.E_0
     ) / C.N_SITES_SILICA
 
-fig, ax = plt.subplots(figsize=(9, 3), nrows=1, ncols=2, sharey=True, sharex=True)
+fig, ax = plt.subplots(figsize=(9, 3), nrows=1, ncols=2, sharex=True)
 colors_gamm = plotting.get_color_gradient(len(GAMMA_RANGE), color="green")
 colors_conc = plotting.get_color_gradient(len(CONC_RANGE), color="green")
 for i, gamma in enumerate(GAMMA_RANGE):
@@ -70,14 +70,17 @@ for i, conc in enumerate(CONC_RANGE):
 ax[0].set_ylabel(r"$f_\mathrm{SiOH}$")
 ax[0].set_xlabel(r"pH")
 ax[0].legend(frameon=False)
-ax[0].set_ylim([0, 1])
+ax[0].set_ylim([0.5, 1])
 ax[0].set_xlim([2, 13])
+ax[0].set_xticks(np.arange(3, 13 + 2, 2))
 
+ax[1].set_xticks(np.arange(3, 13 + 2, 2))
+ax[1].set_ylabel(r"$f_\mathrm{SiOH}$")
 ax[1].set_xlabel(r"pH")
 ax[1].legend(frameon=False)
-ax[1].set_ylim([0, 1])
+ax[1].set_ylim([0.5, 1])
 
-labels = ["a)", "b)"]
+labels = ["(a)", "(b)"]
 for label, axis in zip(labels, ax.reshape(-1)):
     # label physical distance to the left and up:
     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)

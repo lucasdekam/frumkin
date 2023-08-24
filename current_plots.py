@@ -87,7 +87,7 @@ for i, conc in enumerate(CONC_RANGE):
         label=r"$c_{AM}^b=$" + f"{conc*1000:.0f}mM",
     )
 
-labels = ["a)", "b)"]
+labels = ["(a)", "(b)"]
 for label, axis in zip(labels, ax.reshape(-1)):
     # label physical distance to the left and up:
     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
@@ -100,10 +100,12 @@ for label, axis in zip(labels, ax.reshape(-1)):
         va="bottom",
     )
 
-
+ax[0].set_xlim([potentials_v_rhe_gamm[0], potentials_v_rhe_gamm[-1]])
 ax[0].set_ylabel(r"$j/|j_\mathrm{max}|$")
 ax[0].set_xlabel(r"$\phi_0$ [V vs. RHE]")
 ax[0].legend(frameon=False, title=f"pH {PH_WERT_GAMM}")
+
+ax[1].set_xlim([potentials_v_rhe_conc[0], potentials_v_rhe_conc[-1]])
 ax[1].set_ylabel(r"$\log_{10} (|j|/|j_\mathrm{max}|)$")
 ax[1].set_xlabel(r"$\phi_0$ [V vs. RHE]")
 ax[1].legend(frameon=False, title=f"pH {PH_WERT_CONC}")

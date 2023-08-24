@@ -68,7 +68,7 @@ fig, ax = plt.subplots(
     figsize=(9, 6),
     nrows=2,
     ncols=2,
-    sharex=True,
+    # sharex=True,
     sharey="col",
     facecolor="1",
 )
@@ -114,9 +114,10 @@ for i, gamma in enumerate(GAMMA_RANGE):
     ax[0, 1].set_ylabel(r"$P$ [bar]")
     ax[0, 1].set_yscale("log")
     ax[0, 1].set_ylim([1e3, 1e5])
+    ax[0, 0].set_xlim([-1, 0])
     ax[0, 1].set_xlim([-1, 0])
-
     ax[0, 0].set_xlabel(r"$\phi_0$ [V vs. RHE]")
+    ax[0, 1].set_xlabel(r"$\phi_0$ [V vs. RHE]")
     ax[0, 0].set_ylabel(r"$\mathcal{E}$ [V/nm]")
     ax[0, 0].set_ylim([-7, 0])
 
@@ -130,9 +131,10 @@ leg2 = ax[0, 1].legend(
     handlelength=5,
     loc="center left",
     bbox_to_anchor=(1.05, 0.5),
-    title="Au | Insulator",
-    edgecolor=None,
-    frameon=False,
+    title="  Au | SiN",
+    edgecolor="white",
+    fancybox=False,
+    alignment="left",
 )
 ax[0, 1].add_artist(leg2)
 
@@ -175,10 +177,10 @@ for i, conc in enumerate(CONC_RANGE):
     ax[1, 1].set_ylabel(r"$P$ [bar]")
     ax[1, 1].set_yscale("log")
     ax[1, 1].set_ylim([1e3, 1e5])
+    ax[1, 0].set_xlim([-1, 0])
     ax[1, 1].set_xlim([-1, 0])
-
-    ax[1, 1].set_xlabel(r"$\phi_0$ [V vs. RHE]")
     ax[1, 0].set_xlabel(r"$\phi_0$ [V vs. RHE]")
+    ax[1, 1].set_xlabel(r"$\phi_0$ [V vs. RHE]")
     ax[1, 0].set_ylabel(r"$\mathcal{E}$ [V/nm]")
 
 box = ax[1, 1].get_position()
@@ -191,13 +193,14 @@ leg2 = ax[1, 1].legend(
     handlelength=5,
     loc="center left",
     bbox_to_anchor=(1.05, 0.5),
-    title="Au | Insulator",
-    edgecolor=None,
-    frameon=False,
+    title="  Au | SiN",
+    edgecolor="white",
+    fancybox=False,
+    alignment="left",
 )
 ax[1, 1].add_artist(leg2)
 
-labels = ["a)", "b)", "c)", "d)"]
+labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, ax.reshape(-1)):
     # label physical distance to the left and up:
     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
