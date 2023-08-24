@@ -52,6 +52,7 @@ p_si_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
 e_au_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
 e_si_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
 
+# Conc sweep
 for i, conc in enumerate(CONC_RANGE):
     gold = edl.Aqueous(conc, DEFAULT_GAMMA, DEFAULT_GAMMA, DEFAULT_GAMMA, 3)
     gold_sol = gold.potential_sweep(POTENTIALS, p_h=PH_WERT)
@@ -150,12 +151,12 @@ e_si_entries = []
 for i, conc in enumerate(CONC_RANGE):
     (gp,) = ax[1, 1].plot(
         POTENTIALS_V_RHE,
-        p_au_gamma[i, :] / 1e5,
+        p_au_conc[i, :] / 1e5,
         color=blues[i],
     )
     (sp,) = ax[1, 1].plot(
         POTENTIALS_V_RHE,
-        p_si_gamma[i, :] / 1e5,
+        p_si_conc[i, :] / 1e5,
         color=greens[i],
     )
     p_gold_entries.append(gp)
@@ -163,12 +164,12 @@ for i, conc in enumerate(CONC_RANGE):
 
     (ge,) = ax[1, 0].plot(
         POTENTIALS_V_RHE,
-        e_au_gamma[i, :] * 1e-9,
+        e_au_conc[i, :] * 1e-9,
         color=blues[i],
     )
     (se,) = ax[1, 0].plot(
         POTENTIALS_V_RHE,
-        e_si_gamma[i, :] * 1e-9,
+        e_si_conc[i, :] * 1e-9,
         color=greens[i],
     )
     e_gold_entries.append(ge)
