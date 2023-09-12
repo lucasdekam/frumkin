@@ -27,7 +27,7 @@ gamma_list = [2, 4, 6, 8]
 sol_list = []
 
 for gamma in gamma_list:
-    model = models.AqueousVariableStern(DEFAULT_CONCENTRATION_M, gamma, 2, 4, 2)
+    model = models.AqueousVariableStern(DEFAULT_CONCENTRATION_M, gamma, 2, 4, 1)
     sol = model.potential_sweep(potentials, tol=1e-4, p_h=11)
     sol_list.append(sol)
 

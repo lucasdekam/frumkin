@@ -45,17 +45,17 @@ cation_spatial = []
 
 
 for i, conc in enumerate(concentration_range):
-    gc = models.AqueousVariableStern(conc, GAMMA, 2, 5, 2)
-    gc_phi_sweep = gc.potential_sweep(potentials, tol=1e-3)
-    capa_phi_sweep[i, :] = gc_phi_sweep["capacity"]
-    sigma_phi_sweep[i, :] = gc_phi_sweep["charge"]
-    eps_phi_sweep[i, :] = gc_phi_sweep["eps"]
+    model = models.AqueousVariableStern(conc, GAMMA, 2, 5, 1)
+    sweep = model.potential_sweep(potentials, tol=1e-3)
+    capa_phi_sweep[i, :] = sweep["capacity"]
+    sigma_phi_sweep[i, :] = sweep["charge"]
+    eps_phi_sweep[i, :] = sweep["eps"]
 
-    gc_spatial = gc.spatial_profiles(phi0=PHI0_V, tol=1e-3)
-    x_axes.append(gc_spatial["x"] + A_M / 2 * 1e9)
-    phi_spatial.append(gc_spatial["phi"])
-    efield_spatial.append(gc_spatial["efield"])
-    cation_spatial.append(gc_spatial["cations"])
+    spatial = model.spatial_profiles(phi0=PHI0_V, tol=1e-3)
+    x_axes.append(spatial["x"] + A_M / 2 * 1e9)
+    phi_spatial.append(spatial["phi"])
+    efield_spatial.append(spatial["efield"])
+    cation_spatial.append(spatial["cations"])
 
 fig, ax = plt.subplots(figsize=(5, 4), nrows=2, ncols=2)
 colors1 = plotting.get_color_gradient(len(concentration_range))

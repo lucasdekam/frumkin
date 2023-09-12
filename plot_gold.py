@@ -30,7 +30,7 @@ for conc in conc_list:
     # cst_stern = edl.Aqueous(conc + 1e-3, 5, 2, 5, 2)
     # sol = cst_stern.potential_sweep(potentials, tol=1e-4, p_h=3)
     # sol_cst_stern_list.append(sol)
-    var_stern = models.AqueousVariableStern(conc + 1e-3, 5, 2, 5, 2)
+    var_stern = models.AqueousVariableStern(conc + 1e-3, 5, 2, 5, 1)
     sol = var_stern.potential_sweep(potentials, tol=1e-4, p_h=3)
     sol_var_stern_list.append(sol)
 

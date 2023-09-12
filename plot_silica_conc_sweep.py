@@ -27,7 +27,7 @@ conc_list = [1e-3, 1e-2, 1e-1, 5e-1]
 sol_list = []
 
 for conc in conc_list:
-    model = models.AqueousVariableStern(conc, DEFAULT_GAMMA, 2, 4, 2)
+    model = models.AqueousVariableStern(conc, DEFAULT_GAMMA, 2, 4, 1)
     sol = model.ph_sweep(ph_range, tol=1e-4)
     sol_list.append(sol)
 
