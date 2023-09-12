@@ -28,11 +28,11 @@ def frumkin_corrected_current(
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
 
     current = (
-        C.K_B
+        -C.K_B
         * C.T
         / C.PLANCK
         * np.exp(-C.BETA * C.E_0 * deltag)
-        * -np.exp(-0.5 * C.E_0 * C.BETA * C.D_ADSORBATE_LAYER * sol["efield"].values)
+        * np.exp(-0.5 * C.E_0 * C.BETA * C.D_ADSORBATE_LAYER * sol["efield"].values)
         * C.C_WATER_BULK  # * sol["solvent"].values
     )
     return current
@@ -43,6 +43,7 @@ def edl_transport_limited_current(
     potential_range_she: np.ndarray,
     pzc_she: float,
     p_h: float,
+    reorg: float,
 ) -> np.ndarray:
     """
     Compute the current that is rate-limited by transport away from the
@@ -58,5 +59,12 @@ def edl_transport_limited_current(
     """
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
 
-    current = -np.exp(-1.5 * C.E_0 * C.BETA * sol["phi2"].values)
+    phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
+    work = 6 * sol["pressure"].values / model.n_max
+    delta_r_g = C.E_0 * (potential_range_she)
+
+    e_act = (reorg + work + delta_r_g) ** 2 / (4 * reorg)
+    print(np.min(e_act))
+
+    current = -C.K_B * C.T / C.PLANCK * np.exp(-C.BETA * e_act) * C.C_WATER_BULK
     return current
