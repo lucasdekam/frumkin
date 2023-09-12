@@ -4,6 +4,11 @@ Plotting tools for double-layer models
 
 import numpy as np
 
+GAMMA_LIST = [4, 5, 6, 7]
+DEFAULT_GAMMA = 6
+DEFAULT_CONC_M = 100e-3
+DEFAULT_P_H = 13
+
 
 def get_color_gradient(size: int, color="blue"):
     """
