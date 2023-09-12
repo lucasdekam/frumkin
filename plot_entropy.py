@@ -4,13 +4,12 @@ Making Gouy-Chapman-Stern theory plots for introduction
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
 import matplotlib.transforms as mtransforms
-from PIL import Image
+from matplotlib import rcParams
 from matplotlib.gridspec import GridSpec
+from PIL import Image
 
 from edl import models
-from edl import constants as C
 import plotting
 
 rcParams["lines.linewidth"] = 0.75
@@ -20,7 +19,7 @@ rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
 
-def entropy(x):
+def entropy(x):  # pylint: disable=invalid-name
     """
     Calculate the volumetric entropy density
     """

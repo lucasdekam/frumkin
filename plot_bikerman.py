@@ -20,7 +20,7 @@ PHI0_V = -1
 A_M = 10e-10
 
 
-def stern(x, slope):
+def stern(x, slope):  # pylint: disable=invalid-name
     """
     Potential profile in Stern layer
     """
@@ -64,11 +64,11 @@ for i, conc in enumerate(concentration_range):
         label=f"{conc*1e3:.0f}",
         color=colors1[i],
     )
-    x = np.linspace(0, A_M / 2, 50)
+    x_m = np.linspace(0, A_M / 2, 50)
 
     ax[0, 0].plot(
-        x * 1e9,
-        stern(x, efield_spatial[i][0]),
+        x_m * 1e9,
+        stern(x_m, efield_spatial[i][0]),
         color=colors1[i],
     )
 
