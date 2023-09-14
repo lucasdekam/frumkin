@@ -10,7 +10,7 @@ from matplotlib.gridspec import GridSpec
 
 from edl import models
 from edl import constants as C
-import plotting
+import plotting as P
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -21,8 +21,8 @@ rcParams["ytick.major.width"] = 0.5
 DEFAULT_GAMMA = 6
 
 potentials = np.linspace(-2, 0, 200)
+conc_list = P.CONC_LIST
 
-conc_list = [1e-3, 1e-2, 1e-1, 5e-1]
 sol_list = []
 
 for conc in conc_list:
@@ -39,7 +39,7 @@ ax4 = fig.add_subplot(gs[1, 1], sharex=ax1)
 ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
 ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
 
-colors = plotting.get_color_gradient(len(conc_list))
+colors = P.get_color_gradient(len(conc_list))
 
 for i, conc in enumerate(conc_list):
     ax1.plot(
