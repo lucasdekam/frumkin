@@ -687,9 +687,13 @@ class Aqueous(DoubleLayerModel):
 
         return s_over_nkb * n_arr[4]
 
-    # + np.sum(
-    #         n_arr[:-1, :] * np.log(n_arr[:4, :]), axis=0
-    #     )
+    def grad_pressure(self, x_nm, rho, efield, eps):
+        """
+        Calculate dP/dx according to Landstorfer & Muller 2022
+        """
+        return rho * efield + (eps - 1) * C.EPS_0 * efield * np.gradient(
+            efield, x_nm * 1e-9
+        )
 
     def compute_profiles(self, sol, p_h: float):
         n_arr = self.densities(sol.y, p_h)
@@ -708,10 +712,8 @@ class Aqueous(DoubleLayerModel):
                 "charge density": C.E_0 * np.sum(n_arr * self.charge, axis=0),
             }
         )
-        grad_pressure = result["charge density"] * result["efield"] + (
-            result["eps"] - 1
-        ) * C.EPS_0 * result["efield"] * np.gradient(
-            result["efield"], result["x"] * 1e-9
+        grad_pressure = self.grad_pressure(
+            result["x"], result["charge density"], result["efield"], result["eps"]
         )
         result["pressure"] = cumulative_trapezoid(
             grad_pressure[::-1], x=result["x"][::-1] * 1e-9, initial=0
