@@ -117,6 +117,7 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\phi_\mathrm{M}$ / V vs. RHE")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
+    axis.set_xticks([-0.7, -0.6, -0.5, -0.4, -0.3, -0.2])
 
 plt.tight_layout()
 

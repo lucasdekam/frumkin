@@ -38,7 +38,7 @@ def frumkin_corrected_current(
     return current
 
 
-def edl_transport_limited_current(
+def marcus_current(
     model: models.DoubleLayerModel,
     potential_range_she: np.ndarray,
     pzc_she: float,
@@ -60,11 +60,36 @@ def edl_transport_limited_current(
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
 
     phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
-    work = 6 * sol["pressure"].values / model.n_max
-    delta_r_g = C.E_0 * (potential_range_she)
+    # work = 6 * sol["pressure"].values / model.n_max
+    delta_r_g = C.E_0 * (potential_range_she - phi_rp)
 
-    e_act = (reorg + work + delta_r_g) ** 2 / (4 * reorg)
+    e_act = (reorg + delta_r_g) ** 2 / (4 * reorg)
     print(np.min(e_act))
 
     current = -C.K_B * C.T / C.PLANCK * np.exp(-C.BETA * e_act) * C.C_WATER_BULK
+    return current
+
+
+def transport_limited_current(
+    model: models.DoubleLayerModel,
+    potential_range_she: np.ndarray,
+    pzc_she: float,
+    p_h: float,
+    alpha: float,
+    DELTAG=0.9 * C.E_0,
+):
+    """
+    exp (- alpha beta [e0 phi + v dP])
+    """
+    sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
+    phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
+    # work = 1 * sol["pressure"].values / model.n_max
+
+    current = (
+        -C.K_B
+        * C.T
+        / C.PLANCK
+        * np.exp(-alpha * C.BETA * (C.E_0 * phi_rp))
+        * np.exp(-C.BETA * DELTAG)
+    )
     return current

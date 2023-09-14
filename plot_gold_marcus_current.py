@@ -19,12 +19,12 @@ rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
-ALPHA = 0.5
+REORG = 4.15 * C.E_0
 
-potentials_v_rhe = np.linspace(-0.2, 0.1, 100)
+potentials_v_rhe = np.linspace(-0.7, -0.2, 100)
 potentials_v_she = potentials_v_rhe - 59e-3 * P.DEFAULT_P_H
 
-conc_list = [1e-3, 10e-3, 100e-3, 1000e-3]
+conc_list = [5e-3, 250e-3, 500e-3, 1000e-3]
 ph_list = [10, 11, 12, 13]
 
 current_conc = np.zeros((len(conc_list), len(potentials_v_rhe)))
@@ -33,32 +33,32 @@ current_ph = np.zeros((len(ph_list), len(potentials_v_rhe)))
 
 for i, conc in enumerate(conc_list):
     model = models.AqueousVariableStern(conc, P.DEFAULT_GAMMA, 2, 4, 1)
-    current_conc[i, :] = kinetics.transport_limited_current(
+    current_conc[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_she + C.PT_PZC_SHE_V,
-        pzc_she=C.PT_PZC_SHE_V,
+        potentials_v_she + C.AU_PZC_SHE_V,
+        pzc_she=C.AU_PZC_SHE_V,
         p_h=P.DEFAULT_P_H,
-        alpha=ALPHA,
+        reorg=REORG,
     )
 
 for i, gamma in enumerate(P.GAMMA_LIST):
     model = models.AqueousVariableStern(P.DEFAULT_CONC_M, gamma, 2, 4, 1)
-    current_gamma[i, :] = kinetics.transport_limited_current(
+    current_gamma[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_she + C.PT_PZC_SHE_V,
-        pzc_she=C.PT_PZC_SHE_V,
+        potentials_v_she + C.AU_PZC_SHE_V,
+        pzc_she=C.AU_PZC_SHE_V,
         p_h=P.DEFAULT_P_H,
-        alpha=ALPHA,
+        reorg=REORG,
     )
 
 for i, p_h in enumerate(ph_list):
     model = models.AqueousVariableStern(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
-    current_ph[i, :] = kinetics.transport_limited_current(
+    current_ph[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_rhe - 59e-3 * p_h + C.PT_PZC_SHE_V,
-        pzc_she=C.PT_PZC_SHE_V,
+        potentials_v_rhe - 59e-3 * p_h + C.AU_PZC_SHE_V,
+        pzc_she=C.AU_PZC_SHE_V,
         p_h=p_h,
-        alpha=ALPHA,
+        reorg=REORG,
     )
 
 fig = plt.figure(figsize=(5, 4))
@@ -117,9 +117,10 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\phi_\mathrm{M}$ / V vs. RHE")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
+    axis.set_xticks([-0.7, -0.6, -0.5, -0.4, -0.3, -0.2])
 
 plt.tight_layout()
 
-plt.savefig("figures/res-current-pt.pdf", dpi=240)
+plt.savefig("figures/res-current-gold-marcus.pdf", dpi=240)
 
 plt.show()
