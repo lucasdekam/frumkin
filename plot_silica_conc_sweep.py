@@ -23,7 +23,7 @@ DEFAULT_GAMMA = 6
 
 ph_range = np.linspace(3, 13, 100)
 
-conc_list = [1e-3, 1e-2, 1e-1, 5e-1]
+conc_list = plotting.CONC_LIST
 sol_list = []
 
 for conc in conc_list:

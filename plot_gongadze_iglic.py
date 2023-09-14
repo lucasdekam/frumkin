@@ -32,7 +32,7 @@ def stern(x, slope):  # pylint: disable=invalid-name
 
 
 potentials = np.linspace(-1, 1, 100)
-concentration_range = [0.001, 0.01, 0.1, 0.5]
+concentration_range = plotting.CONC_LIST
 
 capa_phi_sweep = np.zeros((len(concentration_range), len(potentials)))
 sigma_phi_sweep = np.zeros((len(concentration_range), len(potentials)))

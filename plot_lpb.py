@@ -28,7 +28,7 @@ def stern(x, slope):  # pylint: disable=invalid-name
 
 
 potentials = np.linspace(-1, 1, 100)
-concentration_range = [0.001, 0.01, 0.1, 0.5]
+concentration_range = plotting.CONC_LIST
 
 capa_phi_sweep = np.zeros((len(concentration_range), len(potentials)))
 sigma_phi_sweep = np.zeros((len(concentration_range), len(potentials)))
@@ -136,14 +136,14 @@ for label, axis in zip(labels, ax.reshape(-1)):
 plt.tight_layout()
 plt.savefig("figures/intro-langevin-gouy-chapman-stern.pdf")
 
-fig2, ax2 = plt.subplots()
-for i, conc in enumerate(concentration_range):
-    ax2.plot(
-        x_axes[i],
-        cation_spatial[i],
-        label=f"{conc*1e3:.0f} mM",
-        color=colors1[i],
-    )
-ax2.set_xlim([0, 5])
+# fig2, ax2 = plt.subplots()
+# for i, conc in enumerate(concentration_range):
+#     ax2.plot(
+#         x_axes[i],
+#         cation_spatial[i],
+#         label=f"{conc*1e3:.0f} mM",
+#         color=colors1[i],
+#     )
+# ax2.set_xlim([0, 5])
 
 plt.show()

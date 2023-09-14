@@ -23,7 +23,7 @@ DEFAULT_CONCENTRATION_M = 10e-3
 
 potentials = np.linspace(-2, 0, 200)
 
-gamma_list = [2, 4, 6, 8]
+gamma_list = plotting.GAMMA_LIST
 sol_list = []
 
 for gamma in gamma_list:

@@ -23,7 +23,7 @@ DEFAULT_CONCENTRATION_M = 100e-3
 
 ph_range = np.linspace(3, 13, 100)
 
-gamma_list = [2, 4, 6, 8]
+gamma_list = plotting.GAMMA_LIST
 sol_list = []
 
 for gamma in gamma_list:

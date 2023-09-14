@@ -9,7 +9,7 @@ import matplotlib.transforms as mtransforms
 
 from edl import models
 from edl import constants as C
-import plotting
+import plotting as P
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -28,7 +28,7 @@ def stern(x, slope):  # pylint: disable=invalid-name
 
 
 potentials = np.linspace(-1, 1, 100)
-concentration_range = [0.001, 0.01, 0.1, 0.5]
+concentration_range = P.CONC_LIST
 
 capa_phi_sweep = np.zeros((len(concentration_range), len(potentials)))
 sigma_phi_sweep = np.zeros((len(concentration_range), len(potentials)))
@@ -53,8 +53,8 @@ for i, conc in enumerate(concentration_range):
 
 
 fig, ax = plt.subplots(figsize=(5, 4), nrows=2, ncols=2)
-colors1 = plotting.get_color_gradient(len(concentration_range))
-colors2 = plotting.get_color_gradient(len(concentration_range), color="red")
+colors1 = P.get_color_gradient(len(concentration_range))
+colors2 = P.get_color_gradient(len(concentration_range), color="red")
 
 # c_entries = []
 # a_entries = []
