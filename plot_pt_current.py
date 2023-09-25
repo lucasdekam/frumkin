@@ -94,9 +94,9 @@ for i, p_h in enumerate(ph_list):
         label=f"{p_h:.0f}",
     )
 
-ax1.legend(loc="lower right", frameon=False, ncols=1, title=r"$c_+^\mathrm{b}$ / mM")
-ax2.legend(loc="lower right", frameon=False, ncols=1, title=r"$\gamma_+$")
-ax3.legend(loc="lower right", frameon=False, ncols=1, title=r"pH")
+ax1.legend(loc="lower right", frameon=False, title=r"$c_+^\mathrm{b}$ / mM")
+ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
+ax3.legend(loc="lower right", frameon=False, title=r"pH")
 
 ax1.set_xlim([potentials_v_rhe[0], potentials_v_rhe[-1]])
 ax2.set_xlim([potentials_v_rhe[0], potentials_v_rhe[-1]])

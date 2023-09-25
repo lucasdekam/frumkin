@@ -107,14 +107,14 @@ ax[1, 0].set_ylabel(r"$\sigma$ / $\mu$C cm$^{-2}$")
 ax[1, 1].set_ylabel(r"$C$ / $\mu$F cm$^{-2}$")
 
 ax[0, 0].set_ylim([PHI0_V, 0.05])
-ax[0, 1].set_ylim([1e-3, 1e4])
+# ax[0, 1].set_ylim([1e-3, 1e4])
 ax[1, 0].set_ylim([-200, 200])
 ax[1, 1].set_ylim([0, 300])
 
 ax[0, 0].set_xlabel(r"$x$ / nm")
 ax[0, 1].set_xlabel(r"$x$ / nm")
-ax[1, 0].set_xlabel(r"$\phi_\mathrm{M}$ / V")
-ax[1, 1].set_xlabel(r"$\phi_\mathrm{M}$ / V")
+ax[1, 0].set_xlabel(r"$\phi_0$ / V")
+ax[1, 1].set_xlabel(r"$\phi_0$ / V")
 
 ax[0, 0].set_xlim([0, 5])
 ax[0, 1].set_xlim([0, 5])
@@ -126,7 +126,7 @@ ax[0, 1].set_xticks([0, 1, 2, 3, 4, 5])
 
 ax[0, 0].legend(frameon=False, title=r"$c_0$ / mM")
 
-ax[0, 1].set_yscale("log")
+# ax[0, 1].set_yscale("log")
 # leg2 = ax[0, 1].legend(
 #     [(c, a) for (c, a) in zip(c_entries, a_entries)],
 #     [f"{conc*1e3:.0f} mM" for conc in concentration_range],

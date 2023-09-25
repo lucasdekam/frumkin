@@ -26,9 +26,9 @@ def get_color_gradient(size: int, color="blue"):
         gre = np.linspace(99, 214, size)[::-1] / 255
         blu = np.linspace(9, 79, size)[::-1] / 255
     elif color == "red":
-        red = np.linspace(120, 247, size)[::-1] / 255
-        gre = np.linspace(17, 96, size)[::-1] / 255
-        blu = np.linspace(4, 77, size)[::-1] / 255
+        red = np.linspace(59, 252, size)[::-1] / 255
+        gre = np.linspace(3, 45, size)[::-1] / 255
+        blu = np.linspace(28, 52, size)[::-1] / 255
     else:
         return None
 

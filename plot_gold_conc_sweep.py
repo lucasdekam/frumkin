@@ -30,14 +30,14 @@ for conc in conc_list:
     sol = model.potential_sweep(potentials, tol=1e-4, p_h=11)
     sol_list.append(sol)
 
-fig = plt.figure(figsize=(5, 5))
-gs = GridSpec(nrows=3, ncols=2)
+fig = plt.figure(figsize=(5, 4))
+gs = GridSpec(nrows=2, ncols=2)
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1], sharex=ax1)
 ax3 = fig.add_subplot(gs[1, 0], sharex=ax1)
 ax4 = fig.add_subplot(gs[1, 1], sharex=ax1)
-ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
-ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
+# ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
+# ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
 
 colors = P.get_color_gradient(len(conc_list))
 
@@ -46,13 +46,13 @@ for i, conc in enumerate(conc_list):
         sol_list[i]["phi0"],
         sol_list[i]["efield"] * 1e-9,
         color=colors[i],
-        label=f"{conc*1e3:.0f} mM",
+        label=f"{conc*1e3:.0f}",
     )
     ax2.plot(
         sol_list[i]["phi0"],
         sol_list[i]["eps"],
         color=colors[i],
-        label=f"{conc*1e3:.0f} mM",
+        label=f"{conc*1e3:.0f}",
     )
     ax3.plot(
         sol_list[i]["phi0"],
@@ -66,25 +66,25 @@ for i, conc in enumerate(conc_list):
         color=colors[i],
         label=f"{conc*1e3:.0f} mM",
     )
-    ax5.plot(
-        sol_list[i]["phi0"],
-        sol_list[i]["entropy"] / C.C_WATER_BULK / 1e3 / C.N_A,
-        color=colors[i],
-        label=f"{conc*1e3:.0f} mM",
-    )
-    ax6.plot(
-        sol_list[i]["phi0"],
-        sol_list[i]["pressure"] / 1e9,
-        color=colors[i],
-        label=f"{conc*1e3:.0f} mM",
-    )
+    # ax5.plot(
+    #     sol_list[i]["phi0"],
+    #     sol_list[i]["entropy"] / C.C_WATER_BULK / 1e3 / C.N_A,
+    #     color=colors[i],
+    #     label=f"{conc*1e3:.0f} mM",
+    # )
+    # ax6.plot(
+    #     sol_list[i]["phi0"],
+    #     sol_list[i]["pressure"] / 1e9,
+    #     color=colors[i],
+    #     label=f"{conc*1e3:.0f} mM",
+    # )
 
 ax1.set_ylabel(r"$E(0)$ / V nm$^{-1}$")
 ax1.set_ylim([-6, 0.2])
 ax1.set_xlim([potentials[0], potentials[-1]])
 
 ax2.set_ylim([0, 80])
-ax2.set_ylabel(r"$\varepsilon(0)$")
+ax2.set_ylabel(r"$\varepsilon(0)/\varepsilon_0$")
 ax2.set_yticks([0, 20, 40, 60, 80])
 
 ax3.set_ylim([0, 7])
@@ -92,22 +92,22 @@ ax3.set_ylabel(r"$c_+(x_2)$ / M")
 ax3.set_yticks([0, 2, 4, 6])
 
 ax4.set_ylim([0, 60])
-ax4.set_ylabel(r"$c_\mathrm{H_2O}(x_2)$ / M")
+ax4.set_ylabel(r"$c_\mathrm{w}(x_2)$ / M")
 ax4.set_yticks([0, 20, 40, 60])
 
-ax5.set_ylim([-1.2, 0.1])
-ax5.set_ylabel(r"$s(0)/k_\mathrm{B}n_\mathrm{w}$")
+# ax5.set_ylim([-1.2, 0.1])
+# ax5.set_ylabel(r"$s(0)/k_\mathrm{B}n_\mathrm{w}$")
 
-ax6.set_ylim([0, 1.5])
-ax6.set_ylabel(r"$P(0)$ / $10^4$ bar")
+# ax6.set_ylim([0, 1.5])
+# ax6.set_ylabel(r"$P(0)$ / $10^4$ bar")
 
-# ax2.set_xlabel(r"$\phi_\mathrm{M}$ / V")
+# ax2.set_xlabel(r"$\phi_0$ / V")
 # ax2.set_ylabel(r"$C$ / $\mu$F cm$^{-2}$")
 # ax2.set_xlim([potentials[0], potentials[-1]])
 # ax2.legend()
 # ax2.set_ylim([0, 140])
 
-ax3.legend(loc="lower left", frameon=False, ncols=1, title=r"$c_+^\mathrm{b}$")
+ax2.legend(loc="best", frameon=False, title=r"$c_0$ / mM")
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
@@ -121,10 +121,10 @@ for label, axis in zip(labels, fig.axes):
         fontsize="medium",
         va="bottom",
     )
-    axis.set_xlabel(r"$\phi_\mathrm{M}$ / V")
+    axis.set_xlabel(r"$\phi_0$ / V")
 
 plt.tight_layout()
 
-plt.savefig("figures/res-conc-sweep-gold.pdf", dpi=240)
+plt.savefig("figures/res-conc-sweep-gold.pdf")
 
 plt.show()

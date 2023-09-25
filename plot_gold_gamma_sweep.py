@@ -30,17 +30,18 @@ for gamma in gamma_list:
     model = models.AqueousVariableStern(DEFAULT_CONCENTRATION_M, gamma, 2, 4, 1)
     sol = model.potential_sweep(potentials, tol=1e-4, p_h=11)
     sol_list.append(sol)
+    # print(model.p_water / (3.33564e-30))
 
-fig = plt.figure(figsize=(5, 5))
-gs = GridSpec(nrows=3, ncols=2)
+fig = plt.figure(figsize=(5, 4))
+gs = GridSpec(nrows=2, ncols=2)
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1], sharex=ax1)
 ax3 = fig.add_subplot(gs[1, 0], sharex=ax1)
 ax4 = fig.add_subplot(gs[1, 1], sharex=ax1)
-ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
-ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
+# ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
+# ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
 
-colors = plotting.get_color_gradient(len(gamma_list))
+colors = plotting.get_color_gradient(len(gamma_list), color='red')
 
 for i, gamma in enumerate(gamma_list):
     ax1.plot(
@@ -67,23 +68,23 @@ for i, gamma in enumerate(gamma_list):
         color=colors[i],
         label=f"{gamma:.0f}",
     )
-    ax5.plot(
-        sol_list[i]["phi0"],
-        sol_list[i]["entropy"] / C.C_WATER_BULK / 1e3 / C.N_A,
-        color=colors[i],
-        label=f"{gamma:.0f}",
-    )
-    ax6.plot(
-        sol_list[i]["phi0"],
-        sol_list[i]["pressure"] / 1e9,
-        color=colors[i],
-        label=f"{gamma:.0f}",
-    )
+    # ax5.plot(
+    #     sol_list[i]["phi0"],
+    #     sol_list[i]["entropy"] / C.C_WATER_BULK / 1e3 / C.N_A,
+    #     color=colors[i],
+    #     label=f"{gamma:.0f}",
+    # )
+    # ax6.plot(
+    #     sol_list[i]["phi0"],
+    #     sol_list[i]["pressure"] / 1e9,
+    #     color=colors[i],
+    #     label=f"{gamma:.0f}",
+    # )
 
 ax1.set_ylabel(r"$E(0)$ / V nm$^{-1}$")
-ax1.set_ylim([-8, 0.2])
+ax1.set_ylim([-6, 0.2])
 ax1.set_xlim([potentials[0], potentials[-1]])
-ax1.set_yticks([-8, -6, -4, -2, 0])
+# ax1.set_yticks([-8, -6, -4, -2, 0])
 
 ax2.set_ylim([0, 80])
 ax2.set_ylabel(r"$\varepsilon(0)$")
@@ -94,16 +95,16 @@ ax3.set_ylabel(r"$c_+(x_2)$ / M")
 # ax3.set_yticks([0, 2, 4, 6, 8])
 
 ax4.set_ylim([0, 60])
-ax4.set_ylabel(r"$c_\mathrm{H_2O}(x_2)$ / M")
+ax4.set_ylabel(r"$c_\mathrm{w}(x_2)$ / M")
 ax4.set_yticks([0, 20, 40, 60])
 
-ax5.set_ylim([-2, 0.1])
-ax5.set_ylabel(r"$s(0)/k_\mathrm{B}n_\mathrm{w}$")
+# ax5.set_ylim([-2, 0.1])
+# ax5.set_ylabel(r"$s(0)/k_\mathrm{B}n_\mathrm{w}$")
 
-ax6.set_ylim([0, 2.5])
-ax6.set_ylabel(r"$P(0)$ / $10^4$ bar")
+# ax6.set_ylim([0, 2.5])
+# ax6.set_ylabel(r"$P(0)$ / $10^4$ bar")
 
-ax1.legend(frameon=False, title=r"$\gamma_+$", ncols=2)
+ax1.legend(frameon=False, title=r"$\gamma_+$")
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
@@ -117,10 +118,10 @@ for label, axis in zip(labels, fig.axes):
         fontsize="medium",
         va="bottom",
     )
-    axis.set_xlabel(r"$\phi_\mathrm{M}$ / V")
+    axis.set_xlabel(r"$\phi_0$ / V")
 
 plt.tight_layout()
 
-plt.savefig("figures/res-gamma-sweep-gold.pdf", dpi=240)
+plt.savefig("figures/res-gamma-sweep-gold.pdf")
 
 plt.show()
