@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import solve_bvp, cumulative_trapezoid
 
+from edl import constants as C
+
 from . import constants as C
 from . import langevin as L
 
@@ -593,7 +595,7 @@ class Aqueous(DoubleLayerModel):
         c_bulk = np.zeros((5, 1))
         c_bulk[0] = 10 ** (-p_h)  # [H+]
         c_bulk[1] = 10 ** (-C.PKW + p_h)  # [OH-]
-        c_bulk[2] = self.c_0 - c_bulk[0]  # [Cat]
+        c_bulk[2] = self.c_0  # [Cat]
         c_bulk[3] = c_bulk[0] + c_bulk[2] - c_bulk[1]  # [An]
         c_bulk[4] = C.C_WATER_BULK - np.sum(self.gammas * c_bulk)  # [H2O]
         n_bulk = c_bulk * 1e3 * C.N_A
@@ -890,13 +892,18 @@ class AqueousVariableStern(Aqueous):
         n_arr = self.densities(ya.reshape(2, 1), p_h)
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
-        c_bulk_arr = self.bulk_densities(p_h) / 1e3 / C.N_A
+        n_bulk_arr = self.bulk_densities(p_h)
+        c_bulk_arr = n_bulk_arr / 1e3 / C.N_A
+
+        KB = 10 ** (-14) / C.K_SILICA_A
 
         left = eps_r * ya[
             1
-        ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max * C.K_SILICA_A / (
-            C.K_SILICA_A
-            + c_bulk_arr[0]
+        ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / 2 / self.n_max * c_bulk_arr[
+            1
+        ] / (
+            c_bulk_arr[1]
+            + KB
             * np.exp(
                 -ya[0]
                 + ya[1] * self.kappa_debye * self.get_stern_layer_thickness(ya[0])
