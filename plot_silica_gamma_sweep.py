@@ -19,7 +19,7 @@ rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
 
-DEFAULT_CONCENTRATION_M = 100e-3
+DEFAULT_CONCENTRATION_M = 10e-3
 
 ph_range = np.linspace(3, 13, 100)
 
@@ -40,7 +40,7 @@ ax_fsioh = fig.add_subplot(gs[1, 1], sharex=ax_E)
 ax_c = fig.add_subplot(gs[2, 0], sharex=ax_E)
 ax_pressure = fig.add_subplot(gs[2, 1], sharex=ax_E)
 
-colors = plotting.get_color_gradient(len(gamma_list))
+colors = plotting.get_color_gradient(len(gamma_list), color="red")
 
 for i, gamma in enumerate(gamma_list):
     ax_E.plot(

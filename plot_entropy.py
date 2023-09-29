@@ -85,7 +85,7 @@ ax3.spines["top"].set_visible(False)
 ax3.spines["bottom"].set_visible(False)
 ax3.spines["left"].set_visible(False)
 ax3.spines["right"].set_visible(False)
-ax3.set_xlabel(r"$\sigma$ / $\mu$C/cm$^2$")
+ax3.set_xlabel(r"$\sigma$ / $\mu$C cm$^{-2}$")
 ax3.set_ylabel(r"$\bar{s}$ / a.u.")
 ax3.xaxis.set_label_position("top")
 

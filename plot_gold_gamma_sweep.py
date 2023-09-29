@@ -9,7 +9,6 @@ import matplotlib.transforms as mtransforms
 from matplotlib.gridspec import GridSpec
 
 from edl import models
-from edl import constants as C
 import plotting
 
 rcParams["lines.linewidth"] = 0.75
@@ -41,7 +40,7 @@ ax4 = fig.add_subplot(gs[1, 1], sharex=ax1)
 # ax5 = fig.add_subplot(gs[2, 0], sharex=ax1)
 # ax6 = fig.add_subplot(gs[2, 1], sharex=ax1)
 
-colors = plotting.get_color_gradient(len(gamma_list), color='red')
+colors = plotting.get_color_gradient(len(gamma_list), color="red")
 
 for i, gamma in enumerate(gamma_list):
     ax1.plot(
