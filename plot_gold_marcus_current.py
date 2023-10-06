@@ -19,9 +19,9 @@ rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
-REORG = 4.15 * C.E_0
+REORG = 6.75 * C.E_0
 
-potentials_v_rhe = np.linspace(-0.7, -0.2, 100)
+potentials_v_rhe = np.linspace(-0.7, C.AU_PZC_SHE_V + 59e-3 * P.DEFAULT_P_H, 100)
 potentials_v_she = potentials_v_rhe - 59e-3 * P.DEFAULT_P_H
 
 conc_list = [5e-3, 250e-3, 500e-3, 1000e-3]
@@ -35,7 +35,7 @@ for i, conc in enumerate(conc_list):
     model = models.AqueousVariableStern(conc, P.DEFAULT_GAMMA, 2, 4, 1)
     current_conc[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_she + C.AU_PZC_SHE_V,
+        potentials_v_she,
         pzc_she=C.AU_PZC_SHE_V,
         p_h=P.DEFAULT_P_H,
         reorg=REORG,
@@ -45,7 +45,7 @@ for i, gamma in enumerate(P.GAMMA_LIST):
     model = models.AqueousVariableStern(P.DEFAULT_CONC_M, gamma, 2, 4, 1)
     current_gamma[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_she + C.AU_PZC_SHE_V,
+        potentials_v_she,
         pzc_she=C.AU_PZC_SHE_V,
         p_h=P.DEFAULT_P_H,
         reorg=REORG,
@@ -55,7 +55,7 @@ for i, p_h in enumerate(ph_list):
     model = models.AqueousVariableStern(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
     current_ph[i, :] = kinetics.marcus_current(
         model,
-        potentials_v_rhe - 59e-3 * p_h + C.AU_PZC_SHE_V,
+        potentials_v_rhe - 59e-3 * p_h,
         pzc_she=C.AU_PZC_SHE_V,
         p_h=p_h,
         reorg=REORG,
@@ -68,6 +68,8 @@ ax2 = fig.add_subplot(gs[0, 1], sharex=ax1)
 ax3 = fig.add_subplot(gs[1, 0], sharex=ax1)
 
 colors = P.get_color_gradient(len(conc_list))
+colors2 = P.get_color_gradient(len(P.GAMMA_LIST), color="red")
+
 for i, conc in enumerate(conc_list):
     ax1.plot(
         potentials_v_rhe,
@@ -81,7 +83,7 @@ for i, gamma in enumerate(P.GAMMA_LIST):
     ax2.plot(
         potentials_v_rhe,
         current_gamma[i, :] * 1e-1,
-        color=colors[i],
+        color=colors2[i],
         label=f"{gamma:.0f}",
     )
 
@@ -98,9 +100,9 @@ ax1.legend(loc="lower right", frameon=False, ncols=1, title=r"$c_+^\mathrm{b}$ /
 ax2.legend(loc="lower right", frameon=False, ncols=1, title=r"$\gamma_+$")
 ax3.legend(loc="lower right", frameon=False, ncols=1, title=r"pH")
 
-ax1.set_xlim([potentials_v_rhe[0], potentials_v_rhe[-1]])
-ax2.set_xlim([potentials_v_rhe[0], potentials_v_rhe[-1]])
-ax3.set_xlim([potentials_v_rhe[0], potentials_v_rhe[-1]])
+ax1.set_xlim([potentials_v_rhe[0], -0.2])
+ax2.set_xlim([potentials_v_rhe[0], -0.2])
+ax3.set_xlim([potentials_v_rhe[0], -0.2])
 
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
