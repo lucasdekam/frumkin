@@ -28,12 +28,16 @@ def frumkin_corrected_current(
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
 
     current = (
-        -C.K_B
+        -2
+        * C.E_0
+        * C.K_B
         * C.T
         / C.PLANCK
         * np.exp(-C.BETA * C.E_0 * deltag)
-        * np.exp(-0.5 * C.E_0 * C.BETA * C.D_ADSORBATE_LAYER * sol["efield"].values)
-        * C.C_WATER_BULK  # * sol["solvent"].values
+        * np.exp(-0.5 * C.E_0 * C.BETA * (sol["phi0"] - sol["phi_rp"]))
+        * C.C_WATER_BULK
+        * 1e3
+        * C.N_A  # * sol["solvent"].values
     )
     return current
 
@@ -59,14 +63,24 @@ def marcus_current(
     """
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
 
-    phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
+    phi_rp = sol["phi_rp"].values
     # work = 6 * sol["pressure"].values / model.n_max
     delta_r_g = C.E_0 * (potential_range_she - phi_rp)
 
     e_act = (reorg + delta_r_g) ** 2 / (4 * reorg)
     print(np.min(e_act))
 
-    current = -C.K_B * C.T / C.PLANCK * np.exp(-C.BETA * e_act) * C.C_WATER_BULK
+    current = (
+        -2
+        * C.E_0
+        * C.K_B
+        * C.T
+        / C.PLANCK
+        * np.exp(-C.BETA * e_act)
+        * C.C_WATER_BULK
+        * 1e3
+        * C.N_A
+    )
     return current
 
 
@@ -82,14 +96,14 @@ def transport_limited_current(
     exp (- alpha beta [e0 phi + v dP])
     """
     sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
-    phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
+    # phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
     # work = 1 * sol["pressure"].values / model.n_max
 
     current = (
         -C.K_B
         * C.T
         / C.PLANCK
-        * np.exp(-alpha * C.BETA * (C.E_0 * phi_rp))
+        * np.exp(-alpha * C.BETA * (C.E_0 * sol["phi_rp"]))
         * np.exp(-C.BETA * DELTAG)
     )
     return current
