@@ -39,12 +39,12 @@ for i, conc in enumerate(concentration_range):
     sweeps.append(sweep_sol)
 
     spatial_sol = model.spatial_profiles(phi0=PHI0_V, tol=1e-3)
-    spatial_sol['x'] = spatial_sol['x'] + C.D_ADSORBATE_LAYER * 1e9
+    spatial_sol["x"] = spatial_sol["x"] + C.D_ADSORBATE_LAYER * 1e9
     solutions.append(spatial_sol)
 
 
 # fig, ax = plt.subplots(figsize=(5, 4), nrows=2, ncols=2)
-fig = plt.figure(figsize=(5,4))
+fig = plt.figure(figsize=(5, 4))
 ax1 = fig.add_subplot(221)
 ax2 = fig.add_subplot(222)
 ax3 = fig.add_subplot(223)
@@ -54,8 +54,8 @@ colors2 = plotting.get_color_gradient(len(concentration_range), color="red")
 
 for i, conc in enumerate(concentration_range):
     ax1.plot(
-        solutions[i]['x'],
-        solutions[i]['phi'],
+        solutions[i]["x"],
+        solutions[i]["phi"],
         label=f"{conc*1e3:.0f}",
         color=colors1[i],
     )
@@ -63,32 +63,32 @@ for i, conc in enumerate(concentration_range):
 
     ax1.plot(
         x_m * 1e9,
-        stern(x_m, solutions[i]['efield'][0]),
+        stern(x_m, solutions[i]["efield"][0]),
         color=colors1[i],
     )
 
     ax2.plot(
-        solutions[i]['x'],
-        solutions[i]['cations'],
+        solutions[i]["x"],
+        solutions[i]["cations"],
         label=f"{conc*1e3:.0f}",
         color=colors1[i],
     )
 
     ax3.plot(
-        solutions[i]['x'],
-        solutions[i]['eps'],
+        solutions[i]["x"],
+        solutions[i]["eps"],
         label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
     ax3.plot(
         x_m * 1e9,
-        np.ones(x_m.shape) * solutions[i]['eps'][0],
+        np.ones(x_m.shape) * solutions[i]["eps"][0],
         color=colors1[i],
     )
 
     ax4.plot(
         potentials,
-        sweeps[i]['capacity'] * 100,
+        sweeps[i]["capacity"] * 100,
         label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
@@ -108,16 +108,16 @@ ax2.set_xlabel(r"$x$ / nm")
 ax3.set_xlabel(r"$x$ / nm")
 ax4.set_xlabel(r"$\phi_0$ / V")
 
-ax1.set_xlim([0, 5])
-ax2.set_xlim([0, 5])
-ax3.set_xlim([0, 5])
+ax1.set_xlim([0, 2])
+ax2.set_xlim([0, 2])
+ax3.set_xlim([0, 2])
 ax4.set_xlim([potentials[0], potentials[-1]])
 
-ax1.set_xticks([0, 1, 2, 3, 4, 5])
-ax2.set_xticks([0, 1, 2, 3, 4, 5])
-ax3.set_xticks([0, 1, 2, 3, 4, 5])
+# ax1.set_xticks([0, 1, 2, 3, 4, 5])
+# ax2.set_xticks([0, 1, 2, 3, 4, 5])
+# ax3.set_xticks([0, 1, 2, 3, 4, 5])
 
-ax1.legend(frameon=False, title=r"$c_0$ / mM")
+ax1.legend(frameon=False, title=r"$c^0$ / mM")
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, fig.axes):

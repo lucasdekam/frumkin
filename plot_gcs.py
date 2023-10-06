@@ -116,15 +116,15 @@ ax[0, 1].set_xlabel(r"$x$ / nm")
 ax[1, 0].set_xlabel(r"$\phi_0$ / V")
 ax[1, 1].set_xlabel(r"$\phi_0$ / V")
 
-ax[0, 0].set_xlim([0, 5])
-ax[0, 1].set_xlim([0, 5])
+ax[0, 0].set_xlim([0, 2])
+ax[0, 1].set_xlim([0, 2])
 ax[1, 0].set_xlim([potentials[0], potentials[-1]])
 ax[1, 1].set_xlim([potentials[0], potentials[-1]])
 
-ax[0, 0].set_xticks([0, 1, 2, 3, 4, 5])
-ax[0, 1].set_xticks([0, 1, 2, 3, 4, 5])
+# ax[0, 0].set_xticks([0, 1, 2, 3, 4, 5])
+# ax[0, 1].set_xticks([0, 1, 2, 3, 4, 5])
 
-ax[0, 0].legend(frameon=False, title=r"$c_0$ / mM")
+ax[0, 0].legend(frameon=False, title=r"$c^0$ / mM")
 
 # ax[0, 1].set_yscale("log")
 # leg2 = ax[0, 1].legend(
