@@ -13,7 +13,7 @@ from edl import constants as C
 import plotting as P
 import kinetics
 
-DELTAG = 2
+DELTAG = 1.98
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
