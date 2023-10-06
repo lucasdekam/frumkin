@@ -6,6 +6,7 @@ from abc import abstractmethod
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_bvp, cumulative_trapezoid
+from scipy.interpolate import interp1d
 
 from edl import constants as C
 
@@ -661,6 +662,25 @@ class Aqueous(DoubleLayerModel):
         dy2 = (numer1 + numer2) / (denom1 + denom2 + denom3)
         return np.vstack([dy1, dy2])
 
+    def dirichlet_lambda(self, phi0, p_h=7):
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        return lambda ya, yb: np.array(
+            [
+                ya[0]
+                - C.BETA * C.Z * C.E_0 * phi0
+                - ya[1] * self.kappa_debye * self.get_stern_layer_thickness(phi0),
+                yb[0],
+            ]
+        )
+
+    def get_stern_layer_thickness(self, phi0):  # pylint: disable=unused-argument
+        """
+        Calculate the thickness of the Stern layer as half of the effective ion size
+        """
+        return C.D_ADSORBATE_LAYER
+
     def permittivity(self, sol_y: np.ndarray, n_sol: np.ndarray):
         """
         Compute the permittivity using the electric field
@@ -699,10 +719,11 @@ class Aqueous(DoubleLayerModel):
 
     def compute_profiles(self, sol, p_h: float):
         n_arr = self.densities(sol.y, p_h)
+        d_stern_m = self.get_stern_layer_thickness(sol.y[0, 0])
 
-        result = pd.DataFrame(
+        diffuse = pd.DataFrame(
             {
-                "x": sol.x / self.kappa_debye * 1e9,
+                "x": sol.x / self.kappa_debye * 1e9 + d_stern_m * 1e9,
                 "phi": sol.y[0, :] / (C.BETA * C.Z * C.E_0),
                 "efield": -sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
                 "protons": n_arr[0] / 1e3 / C.N_A,
@@ -714,17 +735,38 @@ class Aqueous(DoubleLayerModel):
                 "charge density": C.E_0 * np.sum(n_arr * self.charge, axis=0),
             }
         )
-        grad_pressure = self.grad_pressure(
-            result["x"], result["charge density"], result["efield"], result["eps"]
+
+        x_stern_m = np.linspace(0, d_stern_m, 10)
+        stern = pd.DataFrame(
+            {
+                "x": x_stern_m * 1e9,
+                "phi": diffuse["phi"][0]
+                + diffuse["efield"][0] * (d_stern_m - x_stern_m),
+                "efield": np.ones(x_stern_m.shape) * diffuse["efield"][0],
+                "protons": np.zeros(x_stern_m.shape) * np.nan,
+                "hydroxide": np.zeros(x_stern_m.shape) * np.nan,
+                "cations": np.zeros(x_stern_m.shape) * np.nan,
+                "anions": np.zeros(x_stern_m.shape) * np.nan,
+                "solvent": C.C_WATER_BULK,
+                "eps": diffuse["eps"][0],
+                "charge density": np.zeros(x_stern_m.shape),
+            }
         )
-        result["pressure"] = cumulative_trapezoid(
-            grad_pressure[::-1], x=result["x"][::-1] * 1e-9, initial=0
-        )[::-1]
-        result.index.name = self.name
 
-        result["entropy"] = self.entropy(sol.y, p_h)
+        complete = pd.concat([stern, diffuse])
+        # grad_pressure = self.grad_pressure(
+        #     complete["x"],
+        #     complete["charge density"],
+        #     complete["efield"],
+        #     complete["eps"],
+        # )
+        # complete["pressure"] = cumulative_trapezoid(
+        #     grad_pressure[::-1], x=complete["x"][::-1] * 1e-9, initial=0
+        # )[::-1]
+        complete = complete.reset_index()
+        complete.index.name = self.name
 
-        return result
+        return complete
 
     def insulator_bc_lambda(self, p_h):
         """
@@ -740,14 +782,22 @@ class Aqueous(DoubleLayerModel):
         n_arr = self.densities(ya.reshape(2, 1), p_h)
         eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
 
-        c_bulk_arr = self.bulk_densities(p_h) / 1e3 / C.N_A
+        n_bulk_arr = self.bulk_densities(p_h)
+        c_bulk_arr = n_bulk_arr / 1e3 / C.N_A
+
+        KB = 10 ** (-14) / C.K_SILICA_A
 
         left = eps_r * ya[
             1
-        ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / self.n_max * C.K_SILICA_A / (
-            C.K_SILICA_A
-            + c_bulk_arr[0]
-            * np.exp(-ya[0] + ya[1] * self.kappa_debye * C.D_ADSORBATE_LAYER)
+        ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / 2 / self.n_max * c_bulk_arr[
+            1
+        ] / (
+            c_bulk_arr[1]
+            + KB
+            * np.exp(
+                -ya[0]
+                + ya[1] * self.kappa_debye * self.get_stern_layer_thickness(ya[0])
+            )
         )
 
         right = yb[0]
@@ -836,6 +886,58 @@ class Aqueous(DoubleLayerModel):
         )
         return profiles[-1]
 
+    def potential_sweep(
+        self, potential: np.ndarray, tol: float = 1e-3, p_h: float = 7
+    ) -> pd.DataFrame:
+        """
+        Numerical solution to a potential sweep for a defined double-layer model.
+        """
+
+        def _get_rp_qty(sol: pd.DataFrame, qty: str):
+            phi_func = interp1d(sol["x"], sol[qty])
+            return phi_func(C.D_ADSORBATE_LAYER * 1e9)
+
+        # Find potential closest to PZC
+        i_pzc = np.argmin(np.abs(potential)).squeeze()
+
+        profiles_neg = self.potential_sequential_solve(
+            self.ode_lambda, potential[i_pzc::-1], tol=tol, p_h=p_h
+        )
+        profiles_pos = self.potential_sequential_solve(
+            self.ode_lambda, potential[i_pzc::1], tol
+        )
+
+        all_profiles = profiles_neg[::-1] + profiles_pos[1:]
+
+        # Create dataframe with interface values (iloc[0]) to return
+        sweep_df = pd.concat(
+            [pd.DataFrame(profile.iloc[0]).transpose() for profile in all_profiles],
+            ignore_index=True,
+        )
+        sweep_df.index.name = self.name
+
+        sweep_df["phi0"] = potential
+        sweep_df["charge"] = sweep_df["efield"] * C.EPS_0 * sweep_df["eps"]
+        sweep_df["capacity"] = np.gradient(
+            sweep_df["charge"], edge_order=2
+        ) / np.gradient(potential)
+        if "phi" in sweep_df.columns:
+            sweep_df.rename({"phi": "phi2"}, inplace=True, axis=1)
+        if "x" in sweep_df.columns:
+            sweep_df.drop("x", inplace=True, axis=1)
+
+        sweep_df["phi_rp"] = np.array(
+            [_get_rp_qty(profile, "phi") for profile in all_profiles]
+        )
+        sweep_df["cat_rp"] = np.array(
+            [_get_rp_qty(profile, "cations") for profile in all_profiles]
+        )
+        sweep_df["sol_rp"] = np.array(
+            [_get_rp_qty(profile, "solvent") for profile in all_profiles]
+        )
+
+        return sweep_df
+
 
 class AqueousVariableStern(Aqueous):
     """
@@ -870,46 +972,3 @@ class AqueousVariableStern(Aqueous):
         else:
             half_ctrion_thickness = 1 / 2 * (self.gammas[3, 0] / self.n_max) ** (1 / 3)
         return half_ctrion_thickness
-
-    def dirichlet_lambda(self, phi0, p_h=7):
-        """
-        Return a boundary condition function to pass to scipy's solve_bvp
-        """
-        return lambda ya, yb: np.array(
-            [
-                ya[0]
-                - C.BETA * C.Z * C.E_0 * phi0
-                - ya[1] * self.kappa_debye * self.get_stern_layer_thickness(phi0),
-                yb[0],
-            ]
-        )
-
-    def insulator_bc(self, ya, yb, p_h):
-        """
-        Boundary condition
-        """
-        # pylint: disable=invalid-name
-        n_arr = self.densities(ya.reshape(2, 1), p_h)
-        eps_r = self.permittivity(ya.reshape(2, 1), np.atleast_1d(n_arr[4]))
-
-        n_bulk_arr = self.bulk_densities(p_h)
-        c_bulk_arr = n_bulk_arr / 1e3 / C.N_A
-
-        KB = 10 ** (-14) / C.K_SILICA_A
-
-        left = eps_r * ya[
-            1
-        ] - self.kappa_debye * C.EPS_R_WATER * C.N_SITES_SILICA / 2 / self.n_max * c_bulk_arr[
-            1
-        ] / (
-            c_bulk_arr[1]
-            + KB
-            * np.exp(
-                -ya[0]
-                + ya[1] * self.kappa_debye * self.get_stern_layer_thickness(ya[0])
-            )
-        )
-
-        right = yb[0]
-
-        return np.array([left.squeeze(), right])
