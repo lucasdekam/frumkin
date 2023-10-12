@@ -8,7 +8,6 @@ GAMMA_LIST = [4, 5, 6, 7]
 CONC_LIST = [1e-3, 1e-2, 1e-1, 5e-1]
 DEFAULT_GAMMA = 6
 DEFAULT_CONC_M = 100e-3
-DEFAULT_P_H = 13
 
 
 def get_color_gradient(size: int, color="blue"):
@@ -29,6 +28,10 @@ def get_color_gradient(size: int, color="blue"):
         red = np.linspace(59, 252, size)[::-1] / 255
         gre = np.linspace(3, 45, size)[::-1] / 255
         blu = np.linspace(28, 52, size)[::-1] / 255
+    elif color == "purple":
+        red = np.linspace(56, 230, size)[::-1] / 255
+        gre = np.linspace(4, 118, size)[::-1] / 255
+        blu = np.linspace(107, 245, size)[::-1] / 255
     else:
         return None
 
