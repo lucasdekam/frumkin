@@ -116,13 +116,13 @@ ax3.set_xlabel(r"$x$ / nm")
 ax4.set_xlabel(r"$\phi_0$ / V")
 
 ax1.set_xlim([0, 1])
-ax2.set_xlim([0, 5])
-ax3.set_xlim([0, 5])
+ax2.set_xlim([0, 2])
+ax3.set_xlim([0, 2])
 ax4.set_xlim([potentials[0], potentials[-1]])
 
 # ax[0, 0].set_xticks([0, 1, 2, 3, 4, 5])
 
-ax1.legend(frameon=False, title=r"$c^0$ / mM")
+ax1.legend(frameon=False, title=r"$c_0$ / mM")
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, fig.axes):

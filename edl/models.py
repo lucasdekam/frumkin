@@ -897,6 +897,10 @@ class Aqueous(DoubleLayerModel):
             phi_func = interp1d(sol["x"], sol[qty])
             return phi_func(C.D_ADSORBATE_LAYER * 1e9)
 
+        def _get_stern_qty(sol: pd.DataFrame, qty: str):
+            phi_func = interp1d(sol["x"], sol[qty])
+            return phi_func(self.get_stern_layer_thickness(-1) * 1e9)
+
         # Find potential closest to PZC
         i_pzc = np.argmin(np.abs(potential)).squeeze()
 
@@ -929,11 +933,11 @@ class Aqueous(DoubleLayerModel):
         sweep_df["phi_rp"] = np.array(
             [_get_rp_qty(profile, "phi") for profile in all_profiles]
         )
-        sweep_df["cat_rp"] = np.array(
-            [_get_rp_qty(profile, "cations") for profile in all_profiles]
+        sweep_df["cat_2"] = np.array(
+            [_get_stern_qty(profile, "cations") for profile in all_profiles]
         )
-        sweep_df["sol_rp"] = np.array(
-            [_get_rp_qty(profile, "solvent") for profile in all_profiles]
+        sweep_df["sol_2"] = np.array(
+            [_get_stern_qty(profile, "solvent") for profile in all_profiles]
         )
 
         return sweep_df
