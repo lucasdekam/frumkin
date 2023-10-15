@@ -272,37 +272,7 @@ class Borukhov(DoubleLayerModel):
         result.index.name = self.name
 
         return result
-
-    def analytical_sweep(self, potential: np.ndarray):
-        """
-        Analytic solution to a potential sweep in the Borukhov-Andelman-Orland model.
-
-        ion_concentration_molar: bulk ion concentration in molar
-        a_m: ion diameter in m
-        potential: potential array in V
-        """
-        y_0 = C.BETA * C.Z * C.E_0 * potential  # dimensionless potential
-        chg = (
-            np.sqrt(4 * C.K_B * C.T * C.EPS_0 * C.EPS_R_WATER * self.n_0 / self.chi_0)
-            * np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1))
-            * y_0
-            / np.abs(y_0)
-        )
-        cap = (
-            np.sqrt(2)
-            * self.kappa_debye
-            * C.EPS_R_WATER
-            * C.EPS_0
-            / np.sqrt(self.chi_0)
-            * self.chi_0
-            * np.sinh(np.abs(y_0))
-            / (self.chi_0 * np.cosh(y_0) - self.chi_0 + 1)
-            / (2 * np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1)))
-        )  # F/m^2
-
-        sweep_df = pd.DataFrame({"phi0": potential, "capacity": cap, "charge": chg})
-        sweep_df.index.name = self.name + " (Analytic)"
-        return sweep_df
+    
 
     def dirichlet_lambda(self, phi0, p_h=7):  # pylint: disable=unused-argument
         """
@@ -316,6 +286,101 @@ class Borukhov(DoubleLayerModel):
                 yb[0],
             ]
         )
+    
+
+class Yukawa(DoubleLayerModel):
+    def __init__(
+            self, 
+            ion_concentration_molar: float, 
+            l_hyd: float,
+            kappa: float,
+        ) -> None:
+        super().__init__(ion_concentration_molar)
+        self.l_hyd = l_hyd
+        self.kappa = kappa
+        self.l_bj = 0.7e-9
+        self.b = 1
+        self.kappa_e = np.sqrt(8*np.pi*self.l_bj*self.n_0)
+        self.kappa_debye = self.kappa_e
+        self.kappa_h = np.sqrt(8*np.pi*self.b*l_hyd*np.exp(kappa*l_hyd)*self.n_0)
+
+    def ode_rhs(self, x, y):
+        dy1 = y[1, :]
+        dy2 = (1/2) * (self.l_bj * self.kappa_e) ** 2 * (np.exp(y[0, :]) - np.exp(-y[0, :] - y[2,:]))
+        dy3 = y[3, :]
+        dy4 = (self.l_bj * self.kappa) ** 2 * y[2, :] + (1/2) * (self.l_bj * self.kappa_h) ** 2 * (1 - np.exp(-y[0, :] - y[2,:]))
+        return np.vstack([dy1, dy2, dy3, dy4])
+
+    def compute_profiles(self, sol, p_h) -> pd.DataFrame:
+        result = pd.DataFrame(
+            {
+                "x": sol.x / self.kappa_debye * 1e9,
+                "phi": sol.y[0, :] / (C.BETA * C.E_0),
+                "efield": -sol.y[1, :] * self.kappa_debye / (C.BETA * C.E_0),
+                "cations": self.n_0 * np.exp(-sol.y[0, :] - sol.y[2, :]) / 1e3 / C.N_A,
+                "anions": self.n_0 * np.exp(sol.y[0, :]) / 1e3 / C.N_A,
+                "eps": np.ones(sol.x.shape) * C.EPS_R_WATER,
+            }
+        )
+        result.index.name = self.name
+
+        return result
+
+    def dirichlet_lambda(self, sigma0):  # pylint: disable=unused-argument
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        return lambda ya, yb: np.array(
+            [
+                ya[1] + 4 * np.pi * self.l_bj ** 2 * sigma0 / C.E_0,
+                yb[0],
+                ya[3] + 4 * np.pi * self.b * self.l_hyd * self.l_bj * np.exp(self.kappa*self.l_hyd) * C.WATER_SURFACE_NUM_DENS,
+                yb[3],
+            ]
+        )
+
+    def potential_sequential_solve(
+        self,
+        ode_lambda: callable,
+        surface_charge_arr: np.ndarray,
+        tol: float = 1e-3,
+        p_h: float = 7,
+    ) -> list[pd.DataFrame]:
+        """
+        Sweep over a Dirichlet boundary condition for the potential and use the previous
+        solution as initial condition for the next. The initial condition assumes that we
+        start at the PZC.
+
+        Returns: charge for each parameter; list of SpatialProfilesSolutions
+        """
+        df_list = []
+        max_res = np.zeros(surface_charge_arr.shape)
+
+        x_axis = self.create_x_mesh(100, 1000)
+        y_initial = np.zeros((4, x_axis.shape[0]))
+
+        for i, sigma in enumerate(surface_charge_arr):
+            sol = solve_bvp(
+                self.ode_rhs,
+                self.dirichlet_lambda(sigma),
+                x_axis,
+                y_initial,
+                tol=tol,
+                max_nodes=int(1e8),
+                verbose=0,
+            )
+            profile_df = self.compute_profiles(sol, p_h)
+            max_res[i] = np.max(sol.rms_residuals)
+            df_list.append(profile_df)
+
+            x_axis = sol.x
+            y_initial = sol.y
+
+        print(
+            f"Sweep from {surface_charge_arr[0]:.2f} C/m2 to {surface_charge_arr[-1]:.2f} C/m2. "
+            + f"Maximum relative residual: {np.max(max_res):.5e}."
+        )
+        return df_list
 
 
 class LangevinGouyChapmanStern(DoubleLayerModel):

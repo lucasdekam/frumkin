@@ -25,3 +25,6 @@ PLANCK = 6.626e-34
 AU_MAIER_PZC_SHE_V = 0.2  # PZC for Au(111) in V vs. SHE
 AU_PZC_SHE_V = 0.51  # PZC for Au(111) in V vs. SHE
 PT_PZC_SHE_V = 1  # PZC for Pt(111) in V vs. SHE (approximately)
+
+# Yukawa
+WATER_SURFACE_NUM_DENS = 5e18
