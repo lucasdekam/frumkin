@@ -24,4 +24,4 @@ PLANCK = 6.626e-34
 # Kinetics
 AU_MAIER_PZC_SHE_V = 0.2  # PZC for Au(111) in V vs. SHE
 AU_PZC_SHE_V = 0.51  # PZC for Au(111) in V vs. SHE
-PT_PZC_SHE_V = 1  # PZC for Pt(111) in V vs. SHE (approximately)
+PT_PZC_SHE_V = 0.3  # PZC for Pt(111) in V vs. SHE (approximately)

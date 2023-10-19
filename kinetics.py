@@ -2,6 +2,7 @@
 Functions for converting PotentialSweepSolutions into reaction currents.
 """
 import numpy as np
+import pandas as pd
 
 from edl import models
 from edl import constants as C
@@ -68,7 +69,7 @@ def marcus_current(
     delta_r_g = C.E_0 * (potential_range_she - phi_rp)
 
     e_act = (reorg + delta_r_g) ** 2 / (4 * reorg)
-    print(np.min(e_act))
+    # print(np.min(e_act))
 
     current = (
         -2
@@ -85,23 +86,19 @@ def marcus_current(
 
 
 def transport_limited_current(
-    model: models.DoubleLayerModel,
-    potential_range_she: np.ndarray,
-    pzc_she: float,
-    p_h: float,
+    sol: pd.DataFrame,
     alpha: float,
-    DELTAG=0.9 * C.E_0,
+    DELTAG=0.83 * C.E_0,
 ):
     """
     exp (- alpha beta [e0 phi + v dP])
     """
-    sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
     # phi_rp = sol["phi0"].values - sol["efield"].values * C.D_ADSORBATE_LAYER
     # work = 1 * sol["pressure"].values / model.n_max
 
     current = (
-        -C.K_B
-        * C.T
+        -1
+        / C.BETA
         / C.PLANCK
         * np.exp(-alpha * C.BETA * (C.E_0 * sol["phi_rp"]))
         * np.exp(-C.BETA * DELTAG)
