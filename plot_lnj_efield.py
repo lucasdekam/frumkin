@@ -189,20 +189,20 @@ ax_au.legend(frameon=False, fancybox=False)
 ax_pt.legend(frameon=False, fancybox=False)
 
 labels = ["(a) Au", "(b) Pt", "(c)", "(d)", "(e)", "(f)"]
-for label, axis in zip(labels, fig.axes):
+for label, ax in zip(labels, fig.axes):
     # label physical distance to the left and up:
     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
-    axis.text(
+    ax.text(
         0.0,
         1.0,
         label,
-        transform=axis.transAxes + trans,
+        transform=ax.transAxes + trans,
         fontsize="medium",
         va="bottom",
     )
-    axis.set_xlabel(r"$E$ / V nm$^{-1}$")
-    axis.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
-    axis.set_ylim([-5, 0.5])
+    ax.set_xlabel(r"$E$ / V nm$^{-1}$")
+    ax.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
+    ax.set_ylim([-5, 0.5])
 
 plt.tight_layout()
 plt.savefig("figures/res-lnj-efield.pdf")
