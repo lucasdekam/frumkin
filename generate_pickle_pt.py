@@ -1,25 +1,14 @@
 """
 Making volcano plots
 """
-
-import matplotlib.pyplot as plt
-
+import pickle
+from scipy.interpolate import interp1d
 from edl import models
 from edl import constants as C
-import plotting as P
 
-from matplotlib import rcParams
-
-from edl import models
-
-rcParams["lines.linewidth"] = 0.75
-rcParams["font.size"] = 8
-rcParams["axes.linewidth"] = 0.5
-rcParams["xtick.major.width"] = 0.5
-rcParams["ytick.major.width"] = 0.5
 
 # log [Cat], log |j|, phi vs. RHE, gamma, pH
-data_Li_11 = [
+DATA_LI_11 = [
     (-2.2944444444444443, -3.293388429752066, -0.35, 11),
     (-1.6, -2.93801652892562, -0.35, 7, 11),
     (-1.2999999999999998, -2.731404958677686, -0.35, 11),
@@ -37,7 +26,7 @@ data_Li_11 = [
     (-1.6055555555555556, -3.4834710743801653, -0.20, 11),
     (-2.2944444444444443, -3.847107438016529, -0.20, 11),
 ]
-data_Li_13 = [
+DATA_LI_13 = [
     (-2.297752808988764, -2.152892561983471, -0.35, 13),
     (-1.601123595505618, -1.9132231404958677, -0.35, 13),
     (-1.303370786516854, -1.7727272727272725, -0.35, 13),
@@ -55,7 +44,7 @@ data_Li_13 = [
     (-1.595505617977528, -2.5165289256198347, -0.20, 13),
     (-2.303370786516854, -2.6404958677685952, -0.20, 13),
 ]
-data_K_9 = [
+DATA_K_9 = [
     (-2.303370786516854, -2.848101265822785, -0.35, 9),
     (-1.606741573033708, -2.632911392405063, -0.35, 9),
     (-1.3146067415730338, -2.569620253164557, -0.35, 9),
@@ -73,7 +62,7 @@ data_K_9 = [
     (-1.303370786516854, -3.3544303797468356, -0.20, 9),
     (-1, -3.810126582278481, -0.20, 9),
 ]
-data_K_10 = [
+DATA_K_10 = [
     (-2.308988764044944, -4.144, -0.35, 10),
     (-1.601123595505618, -3.872, -0.35, 10),
     (-1.297752808988764, -3.856, -0.35, 10),
@@ -91,7 +80,7 @@ data_K_10 = [
     (-1.297752808988764, -3.978666666666667, -0.20, 10),
     (-1, -4.1866666666666665, -0.20, 10),
 ]
-data_K_11 = [
+DATA_K_11 = [
     (-2.303370786516854, -2.4885496183206106, -0.45, 11),
     (-1.606741573033708, -2.9923664122137406, -0.45, 11),
     (-1.3089887640449438, -3.2519083969465647, -0.45, 11),
@@ -109,7 +98,7 @@ data_K_11 = [
     (-1.303370786516854, -4.549618320610687, -0.30, 11),
     (-1, -4.793893129770993, -0.30, 11),
 ]
-data_K_12 = [
+DATA_K_12 = [
     (-2.299256505576208, -1.6211180124223603, -0.45, 12),
     (-1.6022304832713754, -2.1677018633540373, -0.45, 12),
     (-1.3011152416356877, -2.6149068322981366, -0.45, 12),
@@ -128,93 +117,69 @@ data_K_12 = [
     (-0.9944237918215615, -3.559006211180124, -0.30, 12),
 ]
 
-currents_Li_11 = [point[1] for point in data_Li_11]
-efield_Li_11 = []
-pressure_Li_11 = []
 
-currents_Li_13 = [point[1] for point in data_Li_13]
-efield_Li_13 = []
-pressure_Li_13 = []
+curr_li_11 = [point[1] for point in DATA_LI_11]
+efield_li_11 = []
 
-currents_K_9 = [point[1] for point in data_K_9]
-efield_K_9 = []
-pressure_K_9 = []
+curr_li_13 = [point[1] for point in DATA_LI_13]
+efield_li_13 = []
 
-currents_K_10 = [point[1] for point in data_K_10]
-efield_K_10 = []
-pressure_K_10 = []
+curr_k_9 = [point[1] for point in DATA_K_9]
+efield_k_9 = []
 
-currents_K_11 = [point[1] for point in data_K_11]
-efield_K_11 = []
-pressure_K_11 = []
+curr_k_10 = [point[1] for point in DATA_K_10]
+efield_k_10 = []
 
-currents_K_12 = [point[1] for point in data_K_12]
-efield_K_12 = []
-pressure_K_12 = []
+curr_k_11 = [point[1] for point in DATA_K_11]
+efield_k_11 = []
 
-datas = [data_Li_11, data_Li_13, data_K_9, data_K_10, data_K_11, data_K_12]
+curr_k_12 = [point[1] for point in DATA_K_12]
+efield_k_12 = []
+
+datas = [DATA_LI_11, DATA_LI_13, DATA_K_9, DATA_K_10, DATA_K_11, DATA_K_12]
 efields = [
-    efield_Li_11,
-    efield_Li_13,
-    efield_K_9,
-    efield_K_10,
-    efield_K_11,
-    efield_K_12,
+    efield_li_11,
+    efield_li_13,
+    efield_k_9,
+    efield_k_10,
+    efield_k_11,
+    efield_k_12,
 ]
-pressures = [
-    pressure_Li_11,
-    pressure_Li_13,
-    pressure_K_9,
-    pressure_K_10,
-    pressure_K_11,
-    pressure_K_12,
+currents = [
+    curr_li_11,
+    curr_li_13,
+    curr_k_9,
+    curr_k_10,
+    curr_k_11,
+    curr_k_12,
 ]
-gammas = [7, 7, 6, 6, 6, 6]
+names = [
+    r"Li$^+$ pH 11",
+    r"Li$^+$ pH 13",
+    r"K$^+$ pH 9",
+    r"K$^+$ pH 10",
+    r"K$^+$ pH 11",
+    r"K$^+$ pH 12",
+]
+gammas = [7, 7, 5, 5, 5, 5]
 
-for dataset, efield_list, pressure_list, gamma in zip(
-    datas, efields, pressures, gammas
-):
+for dataset, efield_list, gamma in zip(datas, efields, gammas):
     for point in dataset:
+
+        def _get_rp_qty(sol, qty: str):
+            phi_func = interp1d(sol["x"], sol[qty])
+            return phi_func(C.D_ADSORBATE_LAYER * 1e9)
+
         model = models.AqueousVariableStern(10 ** point[0], gamma, 2, 4, 1)
         sol = model.spatial_profiles(
-            phi0=point[2] - C.AU_PZC_SHE_V - 59e-3 * point[3], p_h=point[3], tol=1e-4
+            phi0=point[2] - C.PT_PZC_SHE_V - 59e-3 * point[3],
+            p_h=point[3],
+            tol=1e-4,
         )
-        efield0 = sol["efield"].values[0]
-        # phi_rp = point[2] - 59e-3 * point[3] - efield0 * C.D_ADSORBATE_LAYER
-        # efield_list.append(efield0 * 1e-9)
-        efield_list.append(efield0 * 1e-9)
-        pressure_list.append(sol["pressure"].values[0] * 1e-5)
+        # efield_list.append(sol["efield"][0])
+        efield_list.append(sol["phi"][0] - _get_rp_qty(sol, "phi"))
+        # efield_list.append(_get_rp_qty(sol, "phi"))
 
-fig = plt.figure(figsize=(5, 4))
-ax1 = fig.add_subplot()
-# ax2 = fig.add_subplot(212)
 
-colors = P.get_color_gradient(len(efields) - 1)
-
-ax1.plot(efield_Li_11, currents_Li_11, ".", color="gray", label=r"Li$^+$ pH 11")
-ax1.plot(efield_Li_13, currents_Li_13, ".", color="black", label=r"Li$^+$ pH 13")
-ax1.plot(efield_K_9, currents_K_9, ".", color="tab:red", label=r"K$^+$ pH 9")
-ax1.plot(efield_K_10, currents_K_10, ".", color="tab:green", label=r"K$^+$ pH 10")
-ax1.plot(efield_K_11, currents_K_11, ".", color="tab:blue", label=r"K$^+$ pH 11")
-ax1.plot(efield_K_12, currents_K_12, ".", color="tab:purple", label=r"K$^+$ pH 12")
-
-ax1.set_xlabel(r"$E$ / V nm$^{-1}$")
-ax1.set_xlim([-4.5, -2.5])
-ax1.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
-ax1.legend(fancybox=False)
-
-# ax2.plot(pressure_Li_11, currents_Li_11, ".", color="gray", label=r"Li$^+$ pH 11")
-# ax2.plot(pressure_Li_13, currents_Li_13, ".", color="black", label=r"Li$^+$ pH 13")
-# ax2.plot(pressure_K_9, currents_K_9, ".", color=colors[0], label=r"K$^+$ pH 9")
-# ax2.plot(pressure_K_10, currents_K_10, ".", color=colors[1], label=r"K$^+$ pH 10")
-# ax2.plot(pressure_K_11, currents_K_11, ".", color=colors[2], label=r"K$^+$ pH 11")
-# ax2.plot(pressure_K_12, currents_K_12, ".", color=colors[3], label=r"K$^+$ pH 12")
-
-# ax2.set_xlabel(r"$P$ / $10^5$ bar")
-# ax2.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
-# ax2.legend(frameon=False)
-
-plt.tight_layout()
-plt.savefig("figures/res-pt-volcano.pdf")
-
-plt.show()
+with open("pt_data_drivingforce.pickle", "wb") as f:
+    pickle.dump((efields, currents, names), f)

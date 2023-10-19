@@ -2,20 +2,14 @@
 Making volcano plots
 """
 
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
+import pickle
+from scipy.interpolate import interp1d
 
 from edl import models
 from edl import constants as C
 
-rcParams["lines.linewidth"] = 0.75
-rcParams["font.size"] = 8
-rcParams["axes.linewidth"] = 0.5
-rcParams["xtick.major.width"] = 0.5
-rcParams["ytick.major.width"] = 0.5
-
 # log [Cat], log |j|, phi vs. RHE, gamma, pH
-data_Li_11 = [
+DATA_LI_11 = [
     (-2.2232145886032364, -3.9409092143350355, -0.65, 11),
     (-1.28571446087898, -3.6477271982460993, -0.65, 11),
     (-0.5178566684527628, -3.402272661303688, -0.65, 11),
@@ -33,7 +27,7 @@ data_Li_11 = [
     (-0.5178566684527628, -4.172727284076785, -0.50, 11),
     (0, -4.029545470860378, -0.50, 7, 11),
 ]
-data_Li_13 = [
+DATA_LI_13 = [
     (-0.9863013698630138, -3.1702127115604553, -0.60, 13),
     (-0.8264841576145121, -3.1382979422794146, -0.60, 13),
     (-0.22374443158711455, -2.9946809326593167, -0.60, 13),
@@ -51,7 +45,7 @@ data_Li_13 = [
     (-0.22374443158711455, -3.89627672590891, -0.45, 13),
     (0.041095890410959734, -3.776595884558829, -0.45, 13),
 ]
-data_K_11 = [
+DATA_K_11 = [
     (-2.2191779756751933, -4.343891339731531, -0.65, 11),
     (-1.5945205067129782, -3.844343759437493, -0.65, 11),
     (-1.2986301266782445, -3.5909502802301168, -0.65, 11),
@@ -69,7 +63,7 @@ data_K_11 = [
     (-1.2931505079765313, -4.199095160588075, -0.50, 11),
     (-1.002739746643511, -3.93122159948863, -0.50, 11),
 ]
-data_K_13 = [
+DATA_K_13 = [
     (-0.9801843317972351, 0.3886792452830188, -0.65, 13),
     (-0.9036866359447004, 0.26792452830188673, -0.65, 13),
     (-0.8253456221198157, 0.08679245283018866, -0.65, 13),
@@ -88,55 +82,37 @@ data_K_13 = [
     (-0.6990783410138248, -1.1660377358490566, -0.50, 13),
 ]
 
-currents_Li_11 = [point[1] for point in data_Li_11]
-efield_Li_11 = []
+curr_li_11 = [point[1] for point in DATA_LI_11]
+efield_li_11 = []
 
-currents_Li_13 = [point[1] for point in data_Li_13]
-efield_Li_13 = []
+curr_li_13 = [point[1] for point in DATA_LI_13]
+efield_li_13 = []
 
-currents_K_11 = [point[1] for point in data_K_11]
-efield_K_11 = []
+curr_k_11 = [point[1] for point in DATA_K_11]
+efield_k_11 = []
 
-currents_K_13 = [point[1] for point in data_K_13]
-efield_K_13 = []
+curr_k_13 = [point[1] for point in DATA_K_13]
+efield_k_13 = []
 
-datas = [data_Li_11, data_Li_13, data_K_11, data_K_13]
-efields = [efield_Li_11, efield_Li_13, efield_K_11, efield_K_13]
-gammas = [7, 7, 6, 6]
+datas = [DATA_LI_11, DATA_LI_13, DATA_K_11, DATA_K_13]
+efields = [efield_li_11, efield_li_13, efield_k_11, efield_k_13]
+currents = [curr_li_11, curr_li_13, curr_k_11, curr_k_13]
+names = [r"Li$^+$ pH 11", r"Li$^+$ pH 13", r"K$^+$ pH 11", r"K$^+$ pH 13"]
+gammas = [7, 7, 5, 5]
 
 for dataset, efield_list, gamma in zip(datas, efields, gammas):
     for point in dataset:
+
+        def _get_rp_qty(solution, qty: str):
+            phi_func = interp1d(solution["x"], solution[qty])
+            return phi_func(C.D_ADSORBATE_LAYER * 1e9)
+
         model = models.AqueousVariableStern(10 ** point[0], gamma, 2, 4, 1)
         sol = model.spatial_profiles(
             phi0=point[2] - C.AU_PZC_SHE_V - 59e-3 * point[3], p_h=point[3], tol=1e-4
         )
-        efield_list.append(sol["efield"].values[0] * 1e-9)
+        efield_list.append(sol["phi"][0] - _get_rp_qty(sol, "phi"))
+        # efield_list.append(sol["efield"][0])
 
-fig = plt.figure(figsize=(5, 4))
-ax1 = fig.add_subplot()
-
-ax1.plot(efield_Li_11, currents_Li_11, ".", color="gray", label=r"Li$^+$ pH 11")
-ax1.plot(efield_Li_13, currents_Li_13, ".", color="black", label=r"Li$^+$ pH 13")
-ax1.plot(efield_K_11, currents_K_11, ".", color="tab:blue", label=r"K$^+$ pH 11")
-ax1.plot(efield_K_13, currents_K_13, ".", color="tab:orange", label=r"K$^+$ pH 13")
-
-ax1.set_xlabel(r"$E$ / V nm$^{-1}$")
-ax1.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
-ax1.legend(fancybox=False)
-
-plt.tight_layout()
-plt.savefig("figures/res-gold-volcano.pdf")
-
-# fig2 = plt.figure(figsize=(5, 4))
-# ax2 = fig2.add_subplot()
-
-# ax2.plot(pressure_Li, currents_Li, ".", color="black", label=r"Li$^+$")
-# ax2.plot(pressure_K, currents_K, ".", color="tab:red", label=r"K$^+$")
-
-# ax2.set_xlabel(r"$P$ / $10^5$ bar")
-# ax2.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
-
-# plt.tight_layout()
-# plt.savefig("figures/res-gold-volcano-pressure.pdf")
-
-plt.show()
+with open("au_data_drivingforce.pickle", "wb") as f:
+    pickle.dump((efields, currents, names), f)
