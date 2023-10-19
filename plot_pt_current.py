@@ -22,6 +22,7 @@ rcParams["ytick.major.width"] = 0.5
 ALPHA = 0.5
 PH_CONC = 11
 PH_GAMMA = 13
+DELTAG = 0.85 * C.E_0
 
 potentials_v_rhe = np.linspace(-0.2, C.PT_PZC_SHE_V + 59e-3 * 13, 100)
 
@@ -43,6 +44,7 @@ for i, conc in enumerate(conc_list):
     current_conc[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
+        deltag=DELTAG,
     )
     phi2_conc[i, :] = sol["phi_rp"].values
 
@@ -54,6 +56,7 @@ for i, gamma in enumerate(P.GAMMA_LIST):
     current_gamma[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
+        deltag=DELTAG,
     )
     phi2_gamm[i, :] = sol["phi_rp"].values
 
@@ -65,6 +68,7 @@ for i, p_h in enumerate(ph_list):
     current_ph[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
+        deltag=DELTAG,
     )
 
 fig = plt.figure(figsize=(5, 6))
