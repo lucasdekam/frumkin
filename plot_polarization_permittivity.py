@@ -9,7 +9,7 @@ import matplotlib.transforms as mtransforms
 
 from edl import constants as C
 from edl import models
-from edl import langevin as L 
+from edl import langevin as L
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -19,10 +19,11 @@ rcParams["ytick.major.width"] = 0.5
 
 model = models.AqueousVariableStern(1, 6, 6, 6, 6)
 
+
 def permittivity(x):
     nw = C.C_WATER_BULK * 1e3 * C.N_A
     p = model.p_water
-    return 1.33 ** 2 + C.BETA * nw * p ** 2 * L.langevin_x_over_x(x) / C.EPS_0
+    return 1.33**2 + C.BETA * nw * p**2 * L.langevin_x_over_x(x) / C.EPS_0
 
 
 x = np.linspace(-25, 25, 100)
@@ -31,10 +32,8 @@ fig = plt.figure(figsize=(5, 2))
 ax1 = fig.add_subplot(121)
 ax2 = fig.add_subplot(122)
 
-ax1.plot(x, L.langevin_x(x), color='black')
-ax2.plot(x, 
-         permittivity(x),
-         color='black')
+ax1.plot(x, L.langevin_x(x), color="black")
+ax2.plot(x, permittivity(x), color="black")
 
 ax1.set_ylabel(r"$\mathcal{P} / n_\mathrm{w}p$")
 ax2.set_ylabel(r"$\varepsilon / \varepsilon_0$")
