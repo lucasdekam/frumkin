@@ -127,7 +127,7 @@ ax4.set_xlim([potentials[0], potentials[-1]])
 
 # ax[0, 0].set_xticks([0, 1, 2, 3, 4, 5])
 
-ax1.legend(frameon=False, title=r"$c^0$ / mM")
+ax1.legend(frameon=False, title=r"$c_0$ / mM")
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, fig.axes):
