@@ -8,8 +8,6 @@ import pandas as pd
 from scipy.integrate import solve_bvp, cumulative_trapezoid
 from scipy.interpolate import interp1d
 
-from edl import constants as C
-
 from . import constants as C
 from . import langevin as L
 
@@ -733,8 +731,19 @@ class Aqueous(DoubleLayerModel):
                 "solvent": n_arr[4] / 1e3 / C.N_A,
                 "eps": self.permittivity(sol.y, n_arr[4]),
                 "charge density": C.E_0 * np.sum(n_arr * self.charge, axis=0),
+                "entropy": self.entropy(sol.y, p_h),
             }
         )
+
+        grad_pressure = self.grad_pressure(
+            diffuse["x"],
+            diffuse["charge density"],
+            diffuse["efield"],
+            diffuse["eps"],
+        )
+        diffuse["pressure"] = cumulative_trapezoid(
+            grad_pressure[::-1], x=diffuse["x"][::-1] * 1e-9, initial=0
+        )[::-1]
 
         x_stern_m = np.linspace(0, d_stern_m, 10)
         stern = pd.DataFrame(
@@ -750,19 +759,13 @@ class Aqueous(DoubleLayerModel):
                 "solvent": C.C_WATER_BULK,
                 "eps": diffuse["eps"][0],
                 "charge density": np.zeros(x_stern_m.shape),
+                "pressure": np.ones(x_stern_m.shape) * diffuse["pressure"][0],
+                "entropy": np.ones(x_stern_m.shape) * diffuse["entropy"][0],
             }
         )
 
         complete = pd.concat([stern, diffuse])
-        # grad_pressure = self.grad_pressure(
-        #     complete["x"],
-        #     complete["charge density"],
-        #     complete["efield"],
-        #     complete["eps"],
-        # )
-        # complete["pressure"] = cumulative_trapezoid(
-        #     grad_pressure[::-1], x=complete["x"][::-1] * 1e-9, initial=0
-        # )[::-1]
+
         complete = complete.reset_index()
         complete.index.name = self.name
 
