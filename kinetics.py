@@ -4,16 +4,12 @@ Functions for converting PotentialSweepSolutions into reaction currents.
 import numpy as np
 import pandas as pd
 
-from edl import models
 from edl import constants as C
 
 
 def frumkin_corrected_current(
-    model: models.DoubleLayerModel,
-    potential_range_she: np.ndarray,
-    pzc_she: float,
-    p_h: float,
-    deltag=1,
+    sol: pd.DataFrame,
+    deltag: float,
 ) -> np.ndarray:
     """
     Compute the Frumkin-corrected current:
@@ -26,28 +22,22 @@ def frumkin_corrected_current(
     potential_range_she: potential range in V vs. SHE
     pzc_she: potential of zero charge of the metal in V vs. SHE
     """
-    sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
-
     current = (
         -2
         * C.E_0
-        * C.K_B
-        * C.T
+        / C.BETA
         / C.PLANCK
-        * np.exp(-C.BETA * C.E_0 * deltag)
+        * np.exp(-C.BETA * deltag)
         * np.exp(-0.5 * C.E_0 * C.BETA * (sol["phi0"] - sol["phi_rp"]))
-        * C.C_WATER_BULK
-        * 1e3
-        * C.N_A  # * sol["solvent"].values
+        * 5e18
     )
     return current
+    # return sol["phi0"] - sol["phi_rp"]
 
 
 def marcus_current(
-    model: models.DoubleLayerModel,
-    potential_range_she: np.ndarray,
+    sol: pd.DataFrame,
     pzc_she: float,
-    p_h: float,
     reorg: float,
 ) -> np.ndarray:
     """
@@ -62,33 +52,17 @@ def marcus_current(
     potential_range_she: potential range in V vs. SHE
     pzc_she: potential of zero charge of the metal in V vs. SHE
     """
-    sol = model.potential_sweep(potential_range_she - pzc_she, p_h=p_h)
-
-    phi_rp = sol["phi_rp"].values
-    # work = 6 * sol["pressure"].values / model.n_max
-    delta_r_g = C.E_0 * (potential_range_she - phi_rp)
-
+    delta_r_g = C.E_0 * (sol["phi0"] - sol["phi_rp"] + pzc_she)
     e_act = (reorg + delta_r_g) ** 2 / (4 * reorg)
-    # print(np.min(e_act))
-
-    current = (
-        -2
-        * C.E_0
-        * C.K_B
-        * C.T
-        / C.PLANCK
-        * np.exp(-C.BETA * e_act)
-        * C.C_WATER_BULK
-        * 1e3
-        * C.N_A
-    )
+    current = -2 * C.E_0 / C.BETA / C.PLANCK * np.exp(-C.BETA * e_act) * 5e18
     return current
+    # return sol["phi0"] - sol["phi_rp"]
 
 
 def transport_limited_current(
     sol: pd.DataFrame,
     alpha: float,
-    DELTAG=0.83 * C.E_0,
+    deltag: float,
 ):
     """
     exp (- alpha beta [e0 phi + v dP])
@@ -97,10 +71,12 @@ def transport_limited_current(
     # work = 1 * sol["pressure"].values / model.n_max
 
     current = (
-        -1
+        -2
+        * C.E_0
         / C.BETA
         / C.PLANCK
+        * 5e18
         * np.exp(-alpha * C.BETA * (C.E_0 * sol["phi_rp"]))
-        * np.exp(-C.BETA * DELTAG)
+        * np.exp(-C.BETA * deltag)
     )
     return current
