@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import matplotlib.transforms as mtransforms
 from matplotlib.gridspec import GridSpec
-from scipy.interpolate import interp1d
 
 from edl import models
 from edl import constants as C
@@ -38,24 +37,15 @@ for conc in conc_list:
     sol = model.potential_sweep(potentials, tol=1e-4, p_h=11)
     conc_sol_list.append(sol)
 
-fig = plt.figure(figsize=(5, 4))
-gs = GridSpec(nrows=2, ncols=2)
-ax_cat_conc = fig.add_subplot(gs[0, 0])
-ax_cat_gamm = fig.add_subplot(gs[0, 1])
-ax_conc = fig.add_subplot(gs[1, 0])
-ax_gamm = fig.add_subplot(gs[1, 1])
+fig = plt.figure(figsize=(5, 2.25))
+gs = GridSpec(nrows=1, ncols=2)
+ax_conc = fig.add_subplot(gs[0, 0])
+ax_gamm = fig.add_subplot(gs[0, 1])
 
 colors1 = plotting.get_color_gradient(len(conc_list))
 colors2 = plotting.get_color_gradient(len(gamma_list), color="red")
 
 for i, conc in enumerate(conc_list):
-    ax_cat_conc.plot(
-        potentials_v_she,
-        conc_sol_list[i]["cat_2"],
-        color=colors1[i],
-        label=f"{conc*1e3:.0f}",
-    )
-
     ax_conc.plot(
         potentials_v_she,
         conc_sol_list[i]["phi0"] - conc_sol_list[i]["phi_rp"],
@@ -64,12 +54,6 @@ for i, conc in enumerate(conc_list):
     )
 
 for i, gamma in enumerate(gamma_list):
-    ax_cat_gamm.plot(
-        potentials_v_she,
-        gamma_sol_list[i]["cat_2"],
-        color=colors2[i],
-        label=f"{gamma:.0f}",
-    )
     ax_gamm.plot(
         potentials_v_she,
         gamma_sol_list[i]["phi0"] - gamma_sol_list[i]["phi_rp"],
@@ -77,21 +61,13 @@ for i, gamma in enumerate(gamma_list):
         label=f"{gamma:.0f}",
     )
 
-ax_cat_conc.set_ylabel(r"$c_+$ at $x_2$ / M")
-ax_cat_conc.set_ylim([-1, 8])
-ax_cat_conc.legend(loc="lower left", frameon=False, title=r"$c_0$ / mM")
-
-ax_cat_gamm.set_ylabel(r"$c_+$ at $x_2$ / M")
-ax_cat_gamm.set_ylim([-1, 8])
-ax_cat_gamm.legend(loc="lower left", frameon=False, title=r"$\gamma_+$")
-
 ax_conc.set_ylabel(r"$\phi_0 - \phi'$ / V")
 ax_conc.set_ylim([-1.6, 0])
-# ax_conc.set_yticks(np.arange(-1.6, 0.4, 0.2))
+ax_conc.legend(frameon=False, title=r"$c_+^*$ / mM")
 
 ax_gamm.set_ylabel(r"$\phi_0 - \phi'$ / V")
 ax_gamm.set_ylim([-1.6, 0])
-# ax_gamm.set_yticks(np.arange(-1.6, 0.4, 0.2))
+ax_gamm.legend(frameon=False, title=r"$\gamma_+$")
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
@@ -111,6 +87,6 @@ for label, axis in zip(labels, fig.axes):
 
 plt.tight_layout()
 
-plt.savefig("figures/res-gold-edl.pdf")
+plt.savefig("figures/res-driving-force.pdf")
 
 plt.show()

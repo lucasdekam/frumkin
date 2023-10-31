@@ -34,7 +34,7 @@ solutions = []
 sweeps = []
 
 for i, conc in enumerate(concentration_range):
-    model = models.LangevinGouyChapmanStern(conc)
+    model = models.LangevinPoissonBoltzmann(conc)
     sweep_sol = model.potential_sweep(potentials, tol=1e-3)
     sweeps.append(sweep_sol)
 

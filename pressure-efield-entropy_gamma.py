@@ -23,35 +23,28 @@ rcParams["ytick.major.width"] = 0.5
 PH_WERT = 13
 POTENTIALS_V_RHE = np.linspace(-1, C.AU_MAIER_PZC_SHE_V + 59e-3 * PH_WERT, 100)
 POTENTIALS = POTENTIALS_V_RHE - C.AU_MAIER_PZC_SHE_V - 59e-3 * PH_WERT
-DEFAULT_GAMMA = 4
 DEFAULT_CONC = 1e-2  # 10 mM
-GAMMA_RANGE = [3, 4, 5, 6]
-CONC_RANGE = [1e-3, 10e-3, 100e-3]
+GAMMA_RANGE = plotting.GAMMA_LIST
 
 # Conc sweep
-p_au_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
-p_si_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
-e_au_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
-e_si_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
-s_au_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
-s_si_conc = np.zeros((len(CONC_RANGE), len(POTENTIALS)))
+p_au = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
+p_si = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
+e_au = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
+e_si = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
+s_au = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
+s_si = np.zeros((len(GAMMA_RANGE), len(POTENTIALS)))
 
-for i, conc in enumerate(CONC_RANGE):
-    gold = models.AqueousVariableStern(
-        conc, DEFAULT_GAMMA, DEFAULT_GAMMA, DEFAULT_GAMMA, 3
-    )
-    gold_sol = gold.potential_sweep(POTENTIALS, p_h=PH_WERT)
-    p_au_conc[i, :] = gold_sol["pressure"]
-    e_au_conc[i, :] = gold_sol["efield"]
-    s_au_conc[i, :] = gold_sol["entropy"]
+for i, gamma in enumerate(GAMMA_RANGE):
+    model = models.AqueousVariableStern(DEFAULT_CONC, gamma, 2, 4, 4)
+    gold_sol = model.potential_sweep(POTENTIALS, p_h=PH_WERT)
+    p_au[i, :] = gold_sol["pressure"]
+    e_au[i, :] = gold_sol["efield"]
+    s_au[i, :] = gold_sol["entropy"]
 
-    ins = models.AqueousVariableStern(
-        conc, DEFAULT_GAMMA, DEFAULT_GAMMA, DEFAULT_GAMMA, 3
-    )
-    ins_sol = ins.insulator_spatial_profiles(p_h=PH_WERT, tol=1e-2)
-    p_si_conc[i, :] = np.ones(POTENTIALS.shape) * ins_sol["pressure"][0]
-    e_si_conc[i, :] = np.ones(POTENTIALS.shape) * ins_sol["efield"][0]
-    s_si_conc[i, :] = np.ones(POTENTIALS.shape) * ins_sol["entropy"][0]
+    ins_sol = model.insulator_spatial_profiles(p_h=PH_WERT, tol=1e-2)
+    p_si[i, :] = np.ones(POTENTIALS.shape) * ins_sol["pressure"][0]
+    e_si[i, :] = np.ones(POTENTIALS.shape) * ins_sol["efield"][0]
+    s_si[i, :] = np.ones(POTENTIALS.shape) * ins_sol["entropy"][0]
 
 # Figure creation
 fig = plt.figure(figsize=(5, 4))
@@ -60,8 +53,8 @@ ax3 = fig.add_subplot(222)
 ax2 = fig.add_subplot(223)
 
 # Conc sweep: pressure and efield plots
-greens = plotting.get_color_gradient(len(CONC_RANGE), color="green")
-blues = plotting.get_color_gradient(len(CONC_RANGE), color="blue")
+greens = plotting.get_color_gradient(len(GAMMA_RANGE), color="green")
+reds = plotting.get_color_gradient(len(GAMMA_RANGE), color="red")
 
 p_gold_entries = []
 p_si_entries = []
@@ -70,15 +63,15 @@ e_si_entries = []
 s_gold_entries = []
 s_si_entries = []
 
-for i, conc in enumerate(CONC_RANGE):
+for i, gamma in enumerate(GAMMA_RANGE):
     (gp,) = ax2.plot(
         POTENTIALS_V_RHE,
-        p_au_conc[i, :] / 1e5,
-        color=blues[i],
+        p_au[i, :] / 1e5,
+        color=reds[i],
     )
     (sp,) = ax2.plot(
         POTENTIALS_V_RHE,
-        p_si_conc[i, :] / 1e5,
+        p_si[i, :] / 1e5,
         color=greens[i],
     )
     p_gold_entries.append(gp)
@@ -86,12 +79,12 @@ for i, conc in enumerate(CONC_RANGE):
 
     (ge,) = ax1.plot(
         POTENTIALS_V_RHE,
-        e_au_conc[i, :] * 1e-9,
-        color=blues[i],
+        e_au[i, :] * 1e-9,
+        color=reds[i],
     )
     (se,) = ax1.plot(
         POTENTIALS_V_RHE,
-        e_si_conc[i, :] * 1e-9,
+        e_si[i, :] * 1e-9,
         color=greens[i],
     )
     e_gold_entries.append(ge)
@@ -99,19 +92,19 @@ for i, conc in enumerate(CONC_RANGE):
 
     (ge,) = ax3.plot(
         POTENTIALS_V_RHE,
-        s_au_conc[i, :] / C.C_WATER_BULK / C.N_A / 1e3,
-        color=blues[i],
+        s_au[i, :] / C.C_WATER_BULK / C.N_A / 1e3,
+        color=reds[i],
     )
     (se,) = ax3.plot(
         POTENTIALS_V_RHE,
-        s_si_conc[i, :] / C.C_WATER_BULK / C.N_A / 1e3,
+        s_si[i, :] / C.C_WATER_BULK / C.N_A / 1e3,
         color=greens[i],
     )
 
 ax1.set_ylabel(r"$E$ / V nm$^{-1}$")
 ax2.set_ylabel(r"$P(0)$ / bar")
-ax1.set_ylim([-7, -0.5])
-ax2.set_ylim([0, 20000])
+ax1.set_ylim([-5, -0.5])
+ax2.set_ylim([0, 15000])
 ax3.set_ylim([-1.3, -0.2])
 
 ax3.set_ylabel(r"$s(0)a^3/k_\mathrm{B}$")
@@ -119,7 +112,7 @@ ax3.set_ylabel(r"$s(0)a^3/k_\mathrm{B}$")
 # ax2.set_position([box.x0, box.y0, box.width * 0.6, box.height])
 leg2 = ax1.legend(
     [(g, s) for (g, s) in zip(e_gold_entries, e_si_entries)],
-    [f"{conc*1000:.0f}mM" for conc in CONC_RANGE],
+    [f"{gamma:.0f}" for gamma in GAMMA_RANGE],
     handler_map={tuple: lh.HandlerTuple(ndivide=None)},
     # fontsize="medium",
     handlelength=2.5,
@@ -150,5 +143,5 @@ for label, axis in zip(labels, fig.axes):
 
 # plt.tight_layout(rect=[0, 0, 0.75, 1])
 plt.tight_layout()
-plt.savefig("figures/nano.pdf")
+plt.savefig("figures/nano-gamma.pdf")
 plt.show()

@@ -2,10 +2,13 @@
 Making volcano plots
 """
 import pickle
+import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import matplotlib.transforms as mtransforms
+
+from edl import constants as C
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -30,6 +33,16 @@ def plot(axis, efield, current, name, style_dict, dont_label=False):
 fig = plt.figure(figsize=(5, 3))
 ax_au = fig.add_subplot(121)
 ax_pt = fig.add_subplot(122)
+
+drivingforce = np.linspace(-5, -3.7, 100) * 1e9
+fit = np.polyfit(e_au[0] + e_au[1], i_au[0] + i_au[1], deg=1)
+print(fit)
+ax_au.plot(drivingforce * 1e-9, np.polyval(fit, drivingforce), "k")
+
+drivingforce = np.linspace(-3.8, -2.3, 100) * 1e9
+fit = np.polyfit(e_pt[0] + e_pt[1] + e_pt[2], i_pt[0] + i_pt[1] + i_pt[2], deg=1)
+print(fit)
+ax_pt.plot(drivingforce * 1e-9, np.polyval(fit, drivingforce), "k")
 
 plot(
     ax_au,
@@ -200,7 +213,7 @@ for label, ax in zip(labels, fig.axes):
         fontsize="medium",
         va="bottom",
     )
-    ax.set_xlabel(r"$E$ / V nm$^{-1}$")
+    ax.set_xlabel(r"$\phi_0 - \phi'$ / V")
     ax.set_ylabel(r"log $|j|$ / A cm$^{-2}$")
     ax.set_ylim([-5, 0.5])
 

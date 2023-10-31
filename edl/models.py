@@ -167,15 +167,29 @@ class DoubleLayerModel:
         """
 
 
-class GouyChapman(DoubleLayerModel):
+class GouyChapmanStern(DoubleLayerModel):
     """
     Gouy-Chapman model, treating ions as point particles obeying Boltzmann statistics.
     See for example Schmickler & Santos' Interfacial Electrochemistry.
     """
 
-    def __init__(self, ion_concentration_molar: float) -> None:
+    def __init__(self, ion_concentration_molar: float, x2: float) -> None:
         super().__init__(ion_concentration_molar)
         self.name = f"Gouy-Chapman {self.c_0:.3f}M"
+        self.x2 = x2
+
+    def dirichlet_lambda(self, phi0, p_h=7):  # pylint: disable=unused-argument
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        return lambda ya, yb: np.array(
+            [
+                ya[0]
+                - C.BETA * C.Z * C.E_0 * phi0
+                - ya[1] * self.kappa_debye * self.x2,
+                yb[0],
+            ]
+        )
 
     def ode_rhs(self, x, y, p_h):
         dy1 = y[1, :]
@@ -183,9 +197,9 @@ class GouyChapman(DoubleLayerModel):
         return np.vstack([dy1, dy2])
 
     def compute_profiles(self, sol, p_h) -> pd.DataFrame:
-        result = pd.DataFrame(
+        diffuse = pd.DataFrame(
             {
-                "x": sol.x / self.kappa_debye * 1e9,
+                "x": sol.x / self.kappa_debye * 1e9 + self.x2 * 1e9,
                 "phi": sol.y[0, :] / (C.BETA * C.Z * C.E_0),
                 "efield": -sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
                 "cations": self.c_0 * np.exp(-sol.y[0, :]),
@@ -193,16 +207,25 @@ class GouyChapman(DoubleLayerModel):
                 "eps": np.ones(sol.x.shape) * C.EPS_R_WATER,
             }
         )
-        result["charge density"] = (
-            C.E_0 * C.N_A * (result["cations"] - result["anions"])
+
+        x_stern_m = np.linspace(0, self.x2, 10)
+        stern = pd.DataFrame(
+            {
+                "x": x_stern_m * 1e9,
+                "phi": diffuse["phi"][0] + diffuse["efield"][0] * (self.x2 - x_stern_m),
+                "efield": np.ones(x_stern_m.shape) * diffuse["efield"][0],
+                "cations": np.zeros(x_stern_m.shape) * np.nan,
+                "anions": np.zeros(x_stern_m.shape) * np.nan,
+                "eps": diffuse["eps"][0],
+            }
         )
-        result["pressure"] = cumulative_trapezoid(
-            result["charge density"][::-1] * result["efield"][::-1],
-            x=result["x"][::-1] * 1e-9,
-            initial=0,
-        )[::-1]
-        result.index.name = self.name
-        return result
+
+        complete = pd.concat([stern, diffuse])
+
+        complete = complete.reset_index()
+        complete.index.name = self.name
+
+        return complete
 
     def analytical_sweep(self, potential: np.ndarray):
         """
@@ -236,6 +259,7 @@ class Borukhov(DoubleLayerModel):
     def __init__(self, ion_concentration_molar: float, a_m: float) -> None:
         super().__init__(ion_concentration_molar)
         self.a_m = a_m
+        self.x2 = self.a_m / 2
         self.chi_0 = 2 * a_m**3 * self.n_0
         self.n_max = 1 / a_m**3
         self.name = f"Borukhov {self.c_0:.3f}M {a_m*1e10:.1f}Å"
@@ -250,9 +274,9 @@ class Borukhov(DoubleLayerModel):
         bf_a = np.exp(sol.y[0, :])
         denom = 1 - self.chi_0 + self.chi_0 * np.cosh(sol.y[0, :])
 
-        result = pd.DataFrame(
+        diffuse = pd.DataFrame(
             {
-                "x": sol.x / self.kappa_debye * 1e9,
+                "x": sol.x / self.kappa_debye * 1e9 + self.x2 * 1e9,
                 "phi": sol.y[0, :] / (C.BETA * C.Z * C.E_0),
                 "efield": -sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
                 "cations": self.c_0 * bf_c / denom,
@@ -260,17 +284,25 @@ class Borukhov(DoubleLayerModel):
                 "eps": np.ones(sol.x.shape) * C.EPS_R_WATER,
             }
         )
-        result["charge density"] = (
-            C.E_0 * C.N_A * (result["cations"] - result["anions"])
-        )
-        result["pressure"] = cumulative_trapezoid(
-            result["charge density"][::-1] * result["efield"][::-1],
-            x=result["x"][::-1] * 1e-9,
-            initial=0,
-        )[::-1]
-        result.index.name = self.name
 
-        return result
+        x_stern_m = np.linspace(0, self.x2, 10)
+        stern = pd.DataFrame(
+            {
+                "x": x_stern_m * 1e9,
+                "phi": diffuse["phi"][0] + diffuse["efield"][0] * (self.x2 - x_stern_m),
+                "efield": np.ones(x_stern_m.shape) * diffuse["efield"][0],
+                "cations": np.zeros(x_stern_m.shape) * np.nan,
+                "anions": np.zeros(x_stern_m.shape) * np.nan,
+                "eps": diffuse["eps"][0],
+            }
+        )
+
+        complete = pd.concat([stern, diffuse])
+
+        complete = complete.reset_index()
+        complete.index.name = self.name
+
+        return complete
 
     def analytical_sweep(self, potential: np.ndarray):
         """
@@ -317,7 +349,7 @@ class Borukhov(DoubleLayerModel):
         )
 
 
-class LangevinGouyChapmanStern(DoubleLayerModel):
+class LangevinPoissonBoltzmann(DoubleLayerModel):
     """
     Langevin-Gouy-Chapman-Stern
     """
@@ -325,11 +357,12 @@ class LangevinGouyChapmanStern(DoubleLayerModel):
     def __init__(
         self,
         ion_concentration_molar: float,
+        x2: float,
         eps_r_opt=C.N_WATER**2,
     ) -> None:
         super().__init__(ion_concentration_molar)
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
-
+        self.x2 = x2
         self.kappa_debye = np.sqrt(
             2
             * self.n_max
@@ -402,9 +435,9 @@ class LangevinGouyChapmanStern(DoubleLayerModel):
     def compute_profiles(self, sol, p_h) -> pd.DataFrame:
         n_cat, n_an = self.densities(sol.y)
 
-        result = pd.DataFrame(
+        diffuse = pd.DataFrame(
             {
-                "x": sol.x / self.kappa_debye * 1e9,
+                "x": sol.x / self.kappa_debye * 1e9 + self.x2 * 1e9,
                 "phi": sol.y[0, :] / (C.BETA * C.Z * C.E_0),
                 "efield": -sol.y[1, :] * self.kappa_debye / (C.BETA * C.Z * C.E_0),
                 "cations": n_cat / 1e3 / C.N_A,
@@ -414,17 +447,40 @@ class LangevinGouyChapmanStern(DoubleLayerModel):
                 "entropy": self.entropy(sol.y),
             }
         )
-        result["charge density"] = (
-            C.E_0 * C.N_A * (result["cations"] - result["anions"])
-        )
-        result["pressure"] = cumulative_trapezoid(
-            result["charge density"][::-1] * result["efield"][::-1],
-            x=result["x"][::-1] * 1e-9,
-            initial=0,
-        )[::-1]
-        result.index.name = self.name
 
-        return result
+        x_stern_m = np.linspace(0, self.x2, 10)
+        stern = pd.DataFrame(
+            {
+                "x": x_stern_m * 1e9,
+                "phi": diffuse["phi"][0] + diffuse["efield"][0] * (self.x2 - x_stern_m),
+                "efield": np.ones(x_stern_m.shape) * diffuse["efield"][0],
+                "cations": np.zeros(x_stern_m.shape) * np.nan,
+                "anions": np.zeros(x_stern_m.shape) * np.nan,
+                "solvent": C.C_WATER_BULK,
+                "eps": diffuse["eps"][0],
+                "entropy": np.ones(x_stern_m.shape) * diffuse["entropy"][0],
+            }
+        )
+
+        complete = pd.concat([stern, diffuse])
+
+        complete = complete.reset_index()
+        complete.index.name = self.name
+
+        return complete
+
+    def dirichlet_lambda(self, phi0, p_h=7):  # pylint: disable=unused-argument
+        """
+        Return a boundary condition function to pass to scipy's solve_bvp
+        """
+        return lambda ya, yb: np.array(
+            [
+                ya[0]
+                - C.BETA * C.Z * C.E_0 * phi0
+                - ya[1] * self.kappa_debye * self.x2,
+                yb[0],
+            ]
+        )
 
 
 class Abrashkin(DoubleLayerModel):
@@ -691,7 +747,7 @@ class Aqueous(DoubleLayerModel):
 
     def entropy(self, sol_y, p_h: float):
         """
-        Calculate the volumetric entropy density
+        Calculate the volumetric entropy density s/kb
         """
         n_arr = self.densities(sol_y, p_h)
 

@@ -134,7 +134,7 @@ for i, p_h in enumerate(ph_list):
     )
 
 
-ax1.legend(loc="lower right", frameon=False, title=r"$c_0$ / mM")
+ax1.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
 ax3.legend(loc="lower right", frameon=False, title=r"pH")
 

@@ -143,7 +143,7 @@ ax1.set_ylabel(r"$j$ / mA cm$^{-2}$")
 ax2.set_ylabel(r"$j$ / mA cm$^{-2}$")
 ax3.set_ylabel(r"$j$ / mA cm$^{-2}$")
 
-axa.legend(loc="lower right", frameon=False, title=r"$c_0$ / mM")
+axa.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 axb.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
 ax3.legend(loc="lower right", frameon=False, title=r"pH")
 

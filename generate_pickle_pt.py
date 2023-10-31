@@ -3,7 +3,7 @@ Making volcano plots
 """
 import pickle
 
-# from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d
 from edl import models
 from edl import constants as C
 
@@ -166,9 +166,10 @@ gammas = [7, 7, 5, 5, 5, 5]
 
 for dataset, efield_list, gamma in zip(datas, efields, gammas):
     for point in dataset:
-        # def _get_rp_qty(solution, qty: str):
-        #     phi_func = interp1d(solution["x"], solution[qty])
-        #     return phi_func(C.D_ADSORBATE_LAYER * 1e9)
+
+        def _get_rp_qty(solution, qty: str):
+            phi_func = interp1d(solution["x"], solution[qty])
+            return phi_func(C.D_ADSORBATE_LAYER * 1e9)
 
         model = models.AqueousVariableStern(10 ** point[0], gamma, 2, 4, 1)
         sol = model.spatial_profiles(
@@ -176,8 +177,8 @@ for dataset, efield_list, gamma in zip(datas, efields, gammas):
             p_h=point[3],
             tol=1e-4,
         )
-        efield_list.append(sol["efield"][0])
-        # efield_list.append(sol["phi"][0] - _get_rp_qty(sol, "phi"))
+        # efield_list.append(sol["efield"][0])
+        efield_list.append(sol["phi"][0] - _get_rp_qty(sol, "phi"))
         # efield_list.append(_get_rp_qty(sol, "phi"))
 
 

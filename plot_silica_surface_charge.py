@@ -55,11 +55,11 @@ p0 = models.AqueousVariableStern(
 )
 solp0 = p0.ph_sweep(ph_range, tol=1e-4)
 
-fig = plt.figure(figsize=(5, 5))
-gs = GridSpec(2, 6, figure=fig, height_ratios=[3, 2])
-ax_models = fig.add_subplot(gs[0, 1:5])
-ax_sigma_conc = fig.add_subplot(gs[1, :3])
-ax_sigma_gamma = fig.add_subplot(gs[1, 3:])
+fig = plt.figure(figsize=(5, 4))
+# gs = GridSpec(2, 8, figure=fig, height_ratios=[2, 2])
+ax_models = fig.add_subplot(221)
+ax_sigma_conc = fig.add_subplot(222)
+ax_sigma_gamma = fig.add_subplot(223)
 
 colors_blu = P.get_color_gradient(len(gamma_list))
 colors_red = P.get_color_gradient(len(gamma_list), color="red")
@@ -87,17 +87,17 @@ for i, gamma in enumerate(gamma_list):
     )
 
 
-ax_models.set_ylim([0, 100])
+ax_models.set_ylim([0, 80])
 ax_models.set_ylabel(r"$-\sigma$ / $\mu$C cm$^{-2}$")
 ax_models.set_xlim([3, 13])
 ax_models.set_xlabel("pH")
 ax_sigma_conc.set_ylabel(r"$-\sigma$ / $\mu$C cm$^{-2}$")
 ax_sigma_gamma.set_ylabel(r"$-\sigma$ / $\mu$C cm$^{-2}$")
-ax_sigma_conc.set_ylim([0, 30])
-ax_sigma_gamma.set_ylim([0, 30])
+ax_sigma_conc.set_ylim([0, 25])
+ax_sigma_gamma.set_ylim([0, 25])
 
 ax_models.legend(frameon=False)
-ax_sigma_conc.legend(frameon=False, title=r"$c_+^\mathrm{0}$ / mM")
+ax_sigma_conc.legend(frameon=False, title=r"$c_+^*$ / mM")
 ax_sigma_gamma.legend(frameon=False, title=r"$\gamma_+$")
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]

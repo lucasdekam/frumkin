@@ -19,7 +19,7 @@ temperature = 273 + np.arange(10, 90, 20)
 sigma_temp = np.zeros((len(temperature), len(potentials)))
 
 for i, temp in enumerate(temperature):
-    gc = models.GouyChapman(DEFAULT_CONCENTRATION_M)
+    gc = models.GouyChapmanStern(DEFAULT_CONCENTRATION_M)
     n_0 = DEFAULT_CONCENTRATION_M * C.N_A * 1e3
     gc.kappa_debye = np.sqrt(
         2 * n_0 * C.E_0**2 / (C.EPS_R_WATER * C.EPS_0 * C.K_B * temp)

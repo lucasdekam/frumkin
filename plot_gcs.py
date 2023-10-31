@@ -39,7 +39,7 @@ cation_spatial = []
 anion_spatial = []
 
 for i, conc in enumerate(concentration_range):
-    gc = models.GouyChapman(conc)
+    gc = models.GouyChapmanStern(conc)
     gc_phi_sweep = gc.potential_sweep(potentials, tol=1e-3)
     capa_phi_sweep[i, :] = gc_phi_sweep["capacity"]
     sigma_phi_sweep[i, :] = gc_phi_sweep["charge"]
