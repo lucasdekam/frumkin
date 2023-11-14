@@ -39,7 +39,7 @@ current_gamma_marcus = np.zeros((len(P.GAMMA_LIST), NUM_PTS))
 current_ph_marcus = np.zeros((len(ph_list), NUM_PTS))
 
 for i, conc in enumerate(conc_list):
-    model = models.AqueousVariableStern(conc, P.DEFAULT_GAMMA, 2, 4, 1)
+    model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2, 4, 1)
     sol = model.potential_sweep(potentials, p_h=DEFAULT_P_H_CONCENT)
     current_conc_frumkin[i, :] = kinetics.frumkin_corrected_current(
         sol,
@@ -53,7 +53,7 @@ for i, conc in enumerate(conc_list):
 
 
 for i, gamma in enumerate(P.GAMMA_LIST):
-    model = models.AqueousVariableStern(P.DEFAULT_CONC_M, gamma, 2, 4, 1)
+    model = models.DoubleLayerModel(P.DEFAULT_CONC_M, gamma, 2, 4, 1)
     sol = model.potential_sweep(potentials, p_h=DEFAULT_P_H_CATSIZE)
     current_gamma_frumkin[i, :] = kinetics.frumkin_corrected_current(
         sol,
@@ -65,7 +65,7 @@ for i, gamma in enumerate(P.GAMMA_LIST):
         reorg=REORG,
     )
 
-model = models.AqueousVariableStern(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
+model = models.DoubleLayerModel(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
 sol = model.potential_sweep(potentials, p_h=7)
 for i, p_h in enumerate(ph_list):
     current_ph_frumkin[i, :] = kinetics.frumkin_corrected_current(

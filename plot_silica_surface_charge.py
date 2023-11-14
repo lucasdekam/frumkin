@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import matplotlib.transforms as mtransforms
-from matplotlib.gridspec import GridSpec
 
 from edl import models
 from edl import constants as C
@@ -27,21 +26,21 @@ conc_list = P.CONC_LIST
 conc_sol_list = []
 
 for conc in conc_list:
-    model = models.AqueousVariableStern(conc, P.DEFAULT_GAMMA, 2, 4, 1)
+    model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2, 4, 1)
     sol = model.ph_sweep(ph_range, tol=1e-4)
     conc_sol_list.append(sol)
 
 gamma_list = P.GAMMA_LIST
 gamma_sol_list = []
 for gamma in gamma_list:
-    model = models.AqueousVariableStern(DEFAULT_CONC_M, gamma, 2, 4, 1)
+    model = models.DoubleLayerModel(DEFAULT_CONC_M, gamma, 2, 4, 1)
     sol = model.ph_sweep(ph_range, tol=1e-4)
     gamma_sol_list.append(sol)
 
-gamm6 = models.AqueousVariableStern(DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
+gamm6 = models.DoubleLayerModel(DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
 solgamm6 = gamm6.ph_sweep(ph_range, tol=1e-4)
 
-gc = models.AqueousVariableStern(DEFAULT_CONC_M, 0, 0, 0, 0, eps_r_opt=C.EPS_R_WATER)
+gc = models.DoubleLayerModel(DEFAULT_CONC_M, 0, 0, 0, 0, eps_r_opt=C.EPS_R_WATER)
 solgc = gc.ph_sweep(ph_range, tol=1e-4)
 
 # lpb = models.LPBMultispecies(DEFAULT_CONC_M)
@@ -50,7 +49,7 @@ solgc = gc.ph_sweep(ph_range, tol=1e-4)
 #     sollpb["solvent"].values[-1], sollpb["cations"].values[-1], sollpb["eps"].values[-1]
 # )
 
-p0 = models.AqueousVariableStern(
+p0 = models.DoubleLayerModel(
     DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1, eps_r_opt=C.EPS_R_WATER
 )
 solp0 = p0.ph_sweep(ph_range, tol=1e-4)

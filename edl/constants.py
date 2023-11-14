@@ -17,7 +17,7 @@ K_SILICA_B = 10 ** (2)  # equilibrium constant silica low pH, molar
 K_WATER = 10 ** (-14)  # equilibrium constant water dissociation, molar^2
 PKW = 14  # -log water constant
 N_WATER = 1.33  # refractive index of water
-D_ADSORBATE_LAYER = 2.8e-10  # adsorbate layer/Stern layer thickness, m
+X_REACTION_PLANE = 2.8e-10  # adsorbate layer/Stern layer thickness, m
 # D_ADSORBATE_LAYER = 3.1e-10   # adsorbate layer/Stern layer thickness, m
 PLANCK = 6.626e-34
 
