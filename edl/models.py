@@ -585,7 +585,7 @@ class Bikerman(DoubleLayerModel):
         """
         bf_pos = np.exp(-sol_y[0, :])
         bf_neg = np.exp(+sol_y[0, :])
-        bf_sol = np.zeros(sol_y[1, :].shape)
+        bf_sol = np.ones(sol_y[1, :].shape)
         bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol])  # shape (5, ...)
         return bfs
 
