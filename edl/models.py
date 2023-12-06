@@ -7,6 +7,8 @@ import pandas as pd
 from scipy.integrate import solve_bvp, cumulative_trapezoid
 from scipy.interpolate import interp1d
 
+from edl import constants as C
+
 from . import constants as C
 from . import langevin as L
 from . import tools as T
@@ -484,3 +486,130 @@ class DoubleLayerModel:
         )
 
         return sweep_df
+
+
+class PoissonBoltzmann(DoubleLayerModel):
+    """
+    Gouy-Chapman-Stern model
+    """
+
+    def __init__(
+        self,
+        c_cat_molar: float,
+        gamma_c: float,
+        gamma_a: float,
+        gamma_h: float,
+        gamma_oh: float,
+    ) -> None:
+        super().__init__(
+            c_cat_molar, gamma_c, gamma_a, gamma_h, gamma_oh, C.EPS_R_WATER
+        )
+
+        self.p_tilde = 0
+
+    def boltzmann_factors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors.
+        """
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = np.ones(sol_y[1, :].shape)
+        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol])  # shape (5, ...)
+        return bfs
+
+    def densities(self, sol_y: np.ndarray, p_h: float):
+        """
+        Compute cation, anion and solvent densities.
+        """
+        n_profile = self.bulk_densities(p_h) * self.boltzmann_factors(sol_y)
+
+        return n_profile
+
+
+class LangevinPoissonBoltzmann(DoubleLayerModel):
+    """
+    Gouy-Chapman-Stern model
+    """
+
+    def __init__(
+        self,
+        c_cat_molar: float,
+        gamma_c: float,
+        gamma_a: float,
+        gamma_h: float,
+        gamma_oh: float,
+        eps_r_opt=C.N_WATER**2,
+    ) -> None:
+        super().__init__(c_cat_molar, gamma_c, gamma_a, gamma_h, gamma_oh, eps_r_opt)
+
+    def boltzmann_factors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors.
+        """
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = np.ones(sol_y[1, :].shape)
+        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol])  # shape (5, ...)
+        return bfs
+
+    def densities(self, sol_y: np.ndarray, p_h: float):
+        """
+        Compute cation, anion and solvent densities.
+        """
+        n_profile = self.bulk_densities(p_h) * self.boltzmann_factors(sol_y)
+
+        return n_profile
+
+
+class Bikerman(DoubleLayerModel):
+    """
+    Gouy-Chapman-Stern model
+    """
+
+    def __init__(
+        self,
+        c_cat_molar: float,
+        gamma_c: float,
+        gamma_a: float,
+        gamma_h: float,
+        gamma_oh: float,
+    ) -> None:
+        super().__init__(
+            c_cat_molar, gamma_c, gamma_a, gamma_h, gamma_oh, C.EPS_R_WATER
+        )
+        self.p_tilde = 0
+
+    def boltzmann_factors(self, sol_y):
+        """
+        Compute cation, anion and solvent Boltzmann factors.
+        """
+        bf_pos = np.exp(-sol_y[0, :])
+        bf_neg = np.exp(+sol_y[0, :])
+        bf_sol = np.zeros(sol_y[1, :].shape)
+        bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol])  # shape (5, ...)
+        return bfs
+
+    def densities(self, sol_y: np.ndarray, p_h: float):
+        """
+        Compute cation, anion and solvent densities.
+        """
+
+        def _get_denominator():
+            """
+            Get denominator of densities
+            """
+            n_bulk = self.bulk_densities(p_h)
+            chi = n_bulk / self.n_max
+
+            bfs = self.boltzmann_factors(sol_y)
+            denom = np.sum(self.gammas * chi * bfs, axis=0)
+
+            return denom
+
+        n_profile = (
+            self.bulk_densities(p_h)
+            * self.boltzmann_factors(sol_y)
+            / _get_denominator()
+        )
+
+        return n_profile

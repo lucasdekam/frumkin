@@ -25,10 +25,10 @@ concentration_range = plotting.CONC_LIST
 gamma_range = plotting.GAMMA_LIST
 phi0_v_range = [-0.4, -0.8, -1.2, -1.6, -2.0]
 
-gcs = models.GouyChapmanStern(plotting.DEFAULT_CONC_M, A_M / 2)
-lpb = models.LangevinPoissonBoltzmann(plotting.DEFAULT_CONC_M, A_M / 2)
-bik = models.Borukhov(plotting.DEFAULT_CONC_M, A_M)
-gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+gcs = models.PoissonBoltzmann(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+lpb = models.LangevinPoissonBoltzmann(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+bik = models.Bikerman(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+gon = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
 sol_gcs = gcs.spatial_profiles(PHI0_V, tol=1e-4)
 sol_lpb = lpb.spatial_profiles(PHI0_V, tol=1e-4)
 sol_bik = bik.spatial_profiles(PHI0_V, tol=1e-4)
@@ -39,17 +39,17 @@ gi_gamm = []
 gi_phi0 = []
 
 for i, conc in enumerate(concentration_range):
-    gon = models.AqueousVariableStern(conc, GAMMA, 2, 4, 4)
+    gon = models.DoubleLayerModel(conc, GAMMA, 2, 4, 4)
     solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
     gi_conc.append(solution)
 
 for i, gamma in enumerate(gamma_range):
-    gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, gamma, 2, 4, 4)
+    gon = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, gamma, 2, 4, 4)
     solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
     gi_gamm.append(solution)
 
 for i, phi0_v in enumerate(phi0_v_range):
-    gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+    gon = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
     solution = gon.spatial_profiles(phi0_v, p_h=7, tol=1e-4)
     gi_phi0.append(solution)
 
