@@ -13,11 +13,11 @@ from edl import constants as C
 import plotting as P
 import kinetics
 
-DELTAG = 1.39 * C.E_0
+DELTAG = 0.9 * C.E_0
 REORG = 4.37 * C.E_0
 DEFAULT_P_H_CATSIZE = 13
 DEFAULT_P_H_CONCENT = 11
-NUM_PTS = 200
+NUM_PTS = 50
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -29,17 +29,19 @@ rcParams["ytick.major.width"] = 0.5
 potentials = np.linspace(-2, 0, NUM_PTS)
 
 conc_list = [5e-3, 250e-3, 500e-3, 1000e-3]
+gamma_list = P.GAMMA_LIST
 ph_list = [10, 11, 12, 13]
+X2_LIST = [3.5e-10, 4.1e-10, 5.2e-10, 5.8e-10]
 
 current_conc_frumkin = np.zeros((len(conc_list), NUM_PTS))
-current_gamma_frumkin = np.zeros((len(P.GAMMA_LIST), NUM_PTS))
+current_gamma_frumkin = np.zeros((len(gamma_list), NUM_PTS))
 current_ph_frumkin = np.zeros((len(ph_list), NUM_PTS))
 current_conc_marcus = np.zeros((len(conc_list), NUM_PTS))
-current_gamma_marcus = np.zeros((len(P.GAMMA_LIST), NUM_PTS))
+current_gamma_marcus = np.zeros((len(gamma_list), NUM_PTS))
 current_ph_marcus = np.zeros((len(ph_list), NUM_PTS))
 
 for i, conc in enumerate(conc_list):
-    model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2, 4, 1)
+    model = models.ExplicitStern(conc, P.DEFAULT_GAMMA, 2, X2_LIST[2])
     sol = model.potential_sweep(potentials, p_h=DEFAULT_P_H_CONCENT)
     current_conc_frumkin[i, :] = kinetics.frumkin_corrected_current(
         sol,
@@ -51,9 +53,8 @@ for i, conc in enumerate(conc_list):
         reorg=REORG,
     )
 
-
-for i, gamma in enumerate(P.GAMMA_LIST):
-    model = models.DoubleLayerModel(P.DEFAULT_CONC_M, gamma, 2, 4, 1)
+for i, gamma in enumerate(gamma_list):
+    model = models.ExplicitStern(P.DEFAULT_CONC_M, gamma, 2, X2_LIST[i])
     sol = model.potential_sweep(potentials, p_h=DEFAULT_P_H_CATSIZE)
     current_gamma_frumkin[i, :] = kinetics.frumkin_corrected_current(
         sol,
@@ -65,7 +66,7 @@ for i, gamma in enumerate(P.GAMMA_LIST):
         reorg=REORG,
     )
 
-model = models.DoubleLayerModel(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, 4, 1)
+model = models.ExplicitStern(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2, X2_LIST[2])
 sol = model.potential_sweep(potentials, p_h=7)
 for i, p_h in enumerate(ph_list):
     current_ph_frumkin[i, :] = kinetics.frumkin_corrected_current(
@@ -78,17 +79,17 @@ for i, p_h in enumerate(ph_list):
         reorg=REORG,
     )
 
-fig = plt.figure(figsize=(5, 6))
-gs = GridSpec(nrows=3, ncols=2)
+fig = plt.figure(figsize=(6.69423, 4))
+gs = GridSpec(nrows=2, ncols=3)
 ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[1, 0])
-ax3 = fig.add_subplot(gs[2, 0])
-ax1_marcus = fig.add_subplot(gs[0, 1])
+ax2 = fig.add_subplot(gs[0, 1])
+ax3 = fig.add_subplot(gs[0, 2])
+ax1_marcus = fig.add_subplot(gs[1, 0])
 ax2_marcus = fig.add_subplot(gs[1, 1])
-ax3_marcus = fig.add_subplot(gs[2, 1])
+ax3_marcus = fig.add_subplot(gs[1, 2])
 
 colors = P.get_color_gradient(len(conc_list))
-red = P.get_color_gradient(len(P.GAMMA_LIST), color="red")
+red = P.get_color_gradient(len(gamma_list), color="red")
 purple = P.get_color_gradient(len(ph_list), color="purple")
 
 for i, conc in enumerate(conc_list):
@@ -105,7 +106,7 @@ for i, conc in enumerate(conc_list):
         label=f"{conc*1e3:.0f}",
     )
 
-for i, gamma in enumerate(P.GAMMA_LIST):
+for i, gamma in enumerate(gamma_list):
     ax2.plot(
         potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CATSIZE,
         current_gamma_frumkin[i, :] * 1e-1,
@@ -134,7 +135,7 @@ for i, p_h in enumerate(ph_list):
     )
 
 
-ax1.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
+ax1.legend(loc="lower right", frameon=False, title=r"$c^*$ / mM")
 ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
 ax3.legend(loc="lower right", frameon=False, title=r"pH")
 
@@ -159,7 +160,7 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
-    axis.set_xticks([-0.7, -0.6, -0.5, -0.4, -0.3, -0.2])
+    # axis.set_xticks([-0.7, -0.6, -0.5, -0.4, -0.3, -0.2])
     axis.set_xlim([-0.7, -0.2])
 
 plt.tight_layout()

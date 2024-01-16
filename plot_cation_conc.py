@@ -19,16 +19,17 @@ rcParams["ytick.major.width"] = 0.5
 EFF_D_WATER_M = (C.C_WATER_BULK * 1e3 * C.N_A) ** (-1 / 3)
 GAMMA = 6  # (A_M / EFF_D_WATER_M) ** 3
 A_M = GAMMA ** (1 / 3) * EFF_D_WATER_M
+X2_LIST = [3.5e-10, 4.1e-10, 5.2e-10, 5.8e-10]
 
 PHI0_V = -1
 concentration_range = plotting.CONC_LIST
 gamma_range = plotting.GAMMA_LIST
 phi0_v_range = [-0.4, -0.8, -1.2, -1.6, -2.0]
 
-gcs = models.GouyChapmanStern(plotting.DEFAULT_CONC_M, A_M / 2)
-lpb = models.LangevinPoissonBoltzmann(plotting.DEFAULT_CONC_M, A_M / 2)
-bik = models.Borukhov(plotting.DEFAULT_CONC_M, A_M)
-gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+gcs = models.PoissonBoltzmann(plotting.DEFAULT_CONC_M, GAMMA, 2, 0, 0)
+lpb = models.LangevinPoissonBoltzmann(plotting.DEFAULT_CONC_M, GAMMA, 2, 0, 0)
+bik = models.Bikerman(plotting.DEFAULT_CONC_M, GAMMA, 2, 0, 0)
+gon = models.ExplicitStern(plotting.DEFAULT_CONC_M, GAMMA, 2, 5.2e-10)
 sol_gcs = gcs.spatial_profiles(PHI0_V, tol=1e-4)
 sol_lpb = lpb.spatial_profiles(PHI0_V, tol=1e-4)
 sol_bik = bik.spatial_profiles(PHI0_V, tol=1e-4)
@@ -39,17 +40,17 @@ gi_gamm = []
 gi_phi0 = []
 
 for i, conc in enumerate(concentration_range):
-    gon = models.AqueousVariableStern(conc, GAMMA, 2, 4, 4)
+    gon = models.ExplicitStern(conc, GAMMA, 2, X2_LIST[2])
     solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
     gi_conc.append(solution)
 
 for i, gamma in enumerate(gamma_range):
-    gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, gamma, 2, 4, 4)
+    gon = models.ExplicitStern(plotting.DEFAULT_CONC_M, gamma, 2, X2_LIST[i])
     solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
     gi_gamm.append(solution)
 
 for i, phi0_v in enumerate(phi0_v_range):
-    gon = models.AqueousVariableStern(plotting.DEFAULT_CONC_M, GAMMA, 2, 4, 4)
+    gon = models.ExplicitStern(plotting.DEFAULT_CONC_M, GAMMA, 2, X2_LIST[2])
     solution = gon.spatial_profiles(phi0_v, p_h=7, tol=1e-4)
     gi_phi0.append(solution)
 
