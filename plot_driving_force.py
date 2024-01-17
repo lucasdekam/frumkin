@@ -19,11 +19,10 @@ rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
 PHI0_V = -1
-# DEFAULT_GAMMA = (5.2/3.1) ** 3
 gamma_list = plotting.GAMMA_LIST
 conc_list = plotting.CONC_LIST
+DEFAULT_GAMMA = gamma_list[2]
 
-# potentials_v_she = np.linspace(-1.5, 0.5, 100)
 potentials_v_pzc = np.linspace(-2, 0, 100)
 
 # figure setup
@@ -41,8 +40,8 @@ colors2 = plotting.get_color_gradient(len(gamma_list), color="red")
 
 # potential profiles
 for i, conc in enumerate(conc_list):
-    gon = models.DoubleLayerModel(conc, DEFAULT_GAMMA, 2, 0, 2)
-    solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
+    gon = models.DoubleLayerModel(conc, DEFAULT_GAMMA, 2)
+    solution = gon.spatial_profiles(PHI0_V, tol=1e-4)
     ax_conc_profile.plot(
         solution["x"],
         solution["phi"],
@@ -51,8 +50,8 @@ for i, conc in enumerate(conc_list):
     )
 
 for i, gamma in enumerate(gamma_list):
-    gon = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, gamma, 2, 0, 2)
-    solution = gon.spatial_profiles(PHI0_V, p_h=7, tol=1e-4)
+    gon = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, gamma, 2)
+    solution = gon.spatial_profiles(PHI0_V, tol=1e-4)
     ax_gamm_profile.plot(
         solution["x"], solution["phi"], color=colors2[i], label=f"{gamma:.0f}"
     )
@@ -74,8 +73,8 @@ ax_gamm_profile.legend(frameon=False, title=r"$\gamma_+$")
 gamma_sol_list = []
 
 for gamma in gamma_list:
-    model = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, gamma, 2, 0, 2)
-    sol = model.potential_sweep(potentials_v_pzc, tol=1e-4, p_h=11)
+    model = models.DoubleLayerModel(plotting.DEFAULT_CONC_M, gamma, 2)
+    sol = model.potential_sweep(potentials_v_pzc, tol=1e-4)
     gamma_sol_list.append(sol)
 
 for i, gamma in enumerate(gamma_list):
@@ -108,8 +107,8 @@ ax_pt_gamm.set_ylim([-0.6, 0])
 conc_sol_list = []
 
 for conc in conc_list:
-    model = models.DoubleLayerModel(conc, DEFAULT_GAMMA, 2, 0, 2)
-    sol = model.potential_sweep(potentials_v_pzc, tol=1e-4, p_h=11)
+    model = models.DoubleLayerModel(conc, DEFAULT_GAMMA, 2)
+    sol = model.potential_sweep(potentials_v_pzc, tol=1e-4)
     conc_sol_list.append(sol)
 
 for i, conc in enumerate(conc_list):
@@ -153,12 +152,8 @@ for label, axis in zip(labels, fig.axes):
         fontsize="medium",
         va="bottom",
     )
-    # axis.set_xlabel(r"$\mathsf{E} - \mathsf{E}_\mathrm{pzc}$ / V")
 
 plt.tight_layout()
 
 plt.savefig("figures/res-driving-force.pdf")
-# import tikzplotlib
-# tikzplotlib.clean_figure()
-# tikzplotlib.save("figures/res-driving-forces.tex", axis_width = '\\linewidth')
 plt.show()
