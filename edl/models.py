@@ -8,6 +8,7 @@ from scipy.integrate import solve_bvp, cumulative_trapezoid
 from scipy.interpolate import interp1d
 
 from edl import constants as C
+from edl.constants import N_WATER
 
 from . import constants as C
 from . import langevin as L
@@ -157,6 +158,14 @@ class DoubleLayerModel:
             half_ctrion_thickness = 1 / 2 * (self.gammas[2, 0] / self.n_max) ** (1 / 3)
         else:
             half_ctrion_thickness = 1 / 2 * (self.gammas[3, 0] / self.n_max) ** (1 / 3)
+        # if self.gammas[2, 0] == 7:
+        #     half_ctrion_thickness = 5.8e-10
+        # elif self.gammas[2, 0] == 6:
+        #     half_ctrion_thickness = 5.2e-10
+        # elif self.gammas[2, 0] == 5:
+        #     half_ctrion_thickness = 4.1e-10
+        # else:
+        #     half_ctrion_thickness = 3.5e-10
         return half_ctrion_thickness
 
     def potential_sequential_solve(
@@ -486,6 +495,41 @@ class DoubleLayerModel:
         )
 
         return sweep_df
+
+
+class ExplicitStern(DoubleLayerModel):
+    def __init__(
+        self,
+        c_cat_molar: float,
+        gamma_c: float,
+        gamma_a: float,
+        x_2: float,
+        eps_r_opt=C.N_WATER**2,
+    ) -> None:
+        super().__init__(c_cat_molar, gamma_c, gamma_a, 0, 0, eps_r_opt)
+        self.x_2 = x_2
+        # self.p_tilde = 0
+
+    # def boltzmann_factors(self, sol_y):
+    #     """
+    #     Compute cation, anion and solvent Boltzmann factors.
+    #     """
+    #     bf_pos = np.exp(-sol_y[0, :])
+    #     bf_neg = np.exp(+sol_y[0, :])
+    #     bf_sol = np.ones(sol_y[1, :].shape)
+    #     bfs = np.array([bf_pos, bf_neg, bf_pos, bf_neg, bf_sol])  # shape (5, ...)
+    #     return bfs
+
+    # def densities(self, sol_y: np.ndarray, p_h: float):
+    #     """
+    #     Compute cation, anion and solvent densities.
+    #     """
+    #     n_profile = self.bulk_densities(p_h) * self.boltzmann_factors(sol_y)
+
+    #     return n_profile
+
+    def get_stern_layer_thickness(self, phi0):
+        return self.x_2
 
 
 class PoissonBoltzmann(DoubleLayerModel):
