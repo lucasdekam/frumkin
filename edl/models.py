@@ -298,3 +298,26 @@ class DoubleLayerModel:
         )
 
         return sweep_df
+
+
+class ExplicitStern(DoubleLayerModel):
+    """
+    Explicitly specify the Stern layer thickness
+    """
+
+    def __init__(
+        self,
+        c_0_molar: float,
+        gamma_c: float,
+        gamma_a: float,
+        x_2: float,
+        eps_r_opt=C.N_WATER**2,
+    ) -> None:
+        super().__init__(c_0_molar, gamma_c, gamma_a, eps_r_opt)
+        self.x_2 = x_2
+
+    def get_stern_layer_thickness(self, phi0):
+        """
+        Calculate the thickness of the Stern layer as half of the effective ion size
+        """
+        return self.x_2
