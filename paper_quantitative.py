@@ -55,7 +55,7 @@ def plot_single_species(ax, species, dataframe):
             )
 
 
-all_df = pd.read_csv("data/all_df.csv")
+all_df = pd.read_csv("data/au_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
