@@ -20,9 +20,8 @@ rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
 ALPHA = 0.5
-PH_CONC = 11
-PH_GAMMA = 13
-DELTAG = 0.85 * C.E_0
+PH_VAL = 13
+DELTAG = 0.87 * C.E_0
 
 potentials_v_rhe = np.linspace(-0.2, C.PT_PZC_SHE_V + 59e-3 * 13, 100)
 
@@ -38,7 +37,7 @@ phi2_gamm = np.zeros((len(P.GAMMA_LIST), len(potentials_v_rhe)))
 
 for i, conc in enumerate(conc_list):
     model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2)
-    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_CONC - C.PT_PZC_SHE_V)
+    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - C.PT_PZC_SHE_V)
     current_conc[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
@@ -47,7 +46,7 @@ for i, conc in enumerate(conc_list):
 
 for i, gamma in enumerate(P.GAMMA_LIST):
     model = models.DoubleLayerModel(P.DEFAULT_CONC_M, gamma, 2)
-    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_GAMMA - C.PT_PZC_SHE_V)
+    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - C.PT_PZC_SHE_V)
     current_gamma[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
@@ -100,9 +99,9 @@ for i, p_h in enumerate(ph_list):
     )
 
 # axa.set_xlim([-0.2])
-ax1.set_xlim([-0.2, 0.1])
-ax2.set_xlim([-0.2, 0.1])
-ax3.set_xlim([-0.2, 0.1])
+ax1.set_xlim([-0.2, 0.2])
+ax2.set_xlim([-0.2, 0.2])
+ax3.set_xlim([-0.2, 0.2])
 ax1.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
 ax2.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
 ax3.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
