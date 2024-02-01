@@ -83,9 +83,9 @@ plot_single_species(ax_li, "Li", all_df)
 plot_single_species(ax_na, "Na", all_df)
 plot_single_species(ax_k, "K", all_df)
 
-ax_li.legend(frameon=False, title=r"$c_+^*$ / mM")
-ax_na.legend(frameon=False, title=r"$c_+^*$ / mM", ncol=1)
-ax_k.legend(frameon=False, title=r"$c_+^*$ / mM")
+ax_li.legend(frameon=False, title=r"$c^*$ / mM")
+ax_na.legend(frameon=False, title=r"$c^*$ / mM", ncol=1)
+ax_k.legend(frameon=False, title=r"$c^*$ / mM")
 
 ax_li.set_xlim([-1.4, -0.9])
 ax_na.set_xlim([-1.4, -0.9])
