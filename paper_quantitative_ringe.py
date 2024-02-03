@@ -55,14 +55,12 @@ def plot_single_species(ax, species, dataframe):
             )
 
 
-all_df = pd.read_csv("data/au_df.csv")
+all_df = pd.read_csv("data/au_df_ringe.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 8))
-ax_li = fig.add_subplot(311)
-ax_na = fig.add_subplot(312)
-ax_k = fig.add_subplot(313)
+fig = plt.figure(figsize=(3.248, 3))
+ax_all = fig.add_subplot()
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
@@ -79,36 +77,29 @@ logj_axis = np.polyval(p, C.BETA * C.E_0 * phi_axis)
 for axis in fig.axes:
     axis.plot(phi_axis, logj_axis, "k-")
 
-plot_single_species(ax_li, "Li", all_df)
-plot_single_species(ax_na, "Na", all_df)
-plot_single_species(ax_k, "K", all_df)
+plot_single_species(ax_all, "Li", all_df)
+plot_single_species(ax_all, "Na", all_df)
+plot_single_species(ax_all, "K", all_df)
 
-ax_li.legend(frameon=False, title=r"$c^*$ / mM")
-ax_na.legend(frameon=False, title=r"$c^*$ / mM", ncol=1)
-ax_k.legend(frameon=False, title=r"$c^*$ / mM")
+ax_all.set_xlim([-1.1, -0.6])
+ax_all.set_ylim([-5, 0.5])
 
-ax_li.set_xlim([-1.4, -0.9])
-ax_na.set_xlim([-1.4, -0.9])
-ax_k.set_xlim([-1.5, -1.0])
-ax_li.set_ylim([-4.7, -2.5])
-ax_na.set_ylim([-4.7, -2])
-ax_k.set_ylim([-5, 0.5])
 
-labels = [r"(a) Li$^+$", r"(b) Na$^+$", r"(c) K$^+$", "(d)", "(e)", "(f)"]
-for label, axis in zip(labels, fig.axes):
-    # label physical distance to the left and up:
-    trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
-    axis.text(
-        0.0,
-        1.0,
-        label,
-        transform=axis.transAxes + trans,
-        fontsize="medium",
-        va="bottom",
-    )
-    axis.set_xlabel(r"$\phi_0 - \phi'$ / V")
-    axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
+# labels = [r"(a) Li$^+$", r"(b) Na$^+$", r"(c) K$^+$", "(d)", "(e)", "(f)"]
+# for label, axis in zip(labels, fig.axes):
+#     # label physical distance to the left and up:
+#     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
+#     axis.text(
+#         0.0,
+#         1.0,
+#         label,
+#         transform=axis.transAxes + trans,
+#         fontsize="medium",
+#         va="bottom",
+#     )
+ax_all.set_xlabel(r"$\phi_0 - \phi'$ / V")
+ax_all.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/quantitative.pdf")
+plt.savefig("figures/quantitative_ringe.pdf")
 plt.show()

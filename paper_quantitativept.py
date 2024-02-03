@@ -9,9 +9,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import matplotlib.transforms as mtransforms
+from matplotlib.legend_handler import HandlerTuple
 
 import plotting as P
 import edl.constants as C
+
 
 rcParams["lines.linewidth"] = 0.75
 rcParams["font.size"] = 8
@@ -19,18 +21,31 @@ rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
 
-SPECIES = ["Li", "Na", "K"]
-PH_RANGE = [11, 13]
-PH_FILLSTYLE = {11: "none", 13: "full"}
-SPECIES_COLORS = {"Li": "blue", "Na": "green", "K": "red"}
+SPECIES = ["Li", "K"]
+PH_RANGE = [9, 10, 11, 12, 13]
+PH_FILLSTYLE = {9: "full", 10: "full", 11: "none", 12: "full", 13: "full"}
+PH_MARKERS = {9: "s", 10: "v", 11: "o", 12: "*", 13: "o"}
+SPECIES_COLORS = {"Li": "blue", "K": "red"}
 
 
-def plot_single_species(ax, species, dataframe):
+def plot_single_species(ax, species, df):
     """
     Make scatter plot for a single species
     """
-    dataframe = dataframe[dataframe["species"] == species]
-    ph_dfs = {ph: dataframe.groupby("pH").get_group(ph) for ph in PH_RANGE}
+    dataframe = df[df["species"] == species]
+    ph_dfs = {
+        ph: dataframe.groupby("pH").get_group(ph)
+        for ph in PH_RANGE
+        if ph in dataframe["pH"].values
+    }
+
+    # I'm lazy so I predefine concentrations
+    legend_entries = {
+        0.005: [],
+        0.025: [],
+        0.050: [],
+        0.100: [],
+    }
 
     for ph, df in ph_dfs.items():
         groupby_dict = df.groupby("c").indices
@@ -42,27 +57,38 @@ def plot_single_species(ax, species, dataframe):
         }
         for c, indices in groupby_dict.items():
             select_df = df.iloc[indices]
-            ax.plot(
+            (p,) = ax.plot(
                 select_df["phi0"] - select_df["phi_rp"],
                 select_df["log j"],
-                marker="o",
+                marker=PH_MARKERS[ph],
                 fillstyle=PH_FILLSTYLE[ph],
                 markeredgewidth=0.5,
                 markersize=3,
                 linestyle="None",
                 color=colors[c],
-                label=f"{c*1e3:.0f}",
+                # label=f"{c*1e3:.0f}",
             )
 
+            legend_entries[c].append(p)
 
-all_df = pd.read_csv("data/au_df.csv")
+    print([tuple(legend_entries[c]) for c in legend_entries.keys()])
+    print(list(legend_entries.keys()))
+    ax.legend(
+        [tuple(legend_entries[c]) for c in legend_entries.keys()],
+        [f"{c*1e3:.0f}" for c in legend_entries.keys()],
+        handler_map={tuple: HandlerTuple(ndivide=None)},
+        frameon=False,
+        title=r"$c^*$ / mM",
+    )
+
+
+all_df = pd.read_csv("data/pt_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 8))
-ax_li = fig.add_subplot(311)
-ax_na = fig.add_subplot(312)
-ax_k = fig.add_subplot(313)
+fig = plt.figure(figsize=(3.248, 5))
+ax_li = fig.add_subplot(211)
+ax_k = fig.add_subplot(212)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
@@ -80,21 +106,15 @@ for axis in fig.axes:
     axis.plot(phi_axis, logj_axis, "k-")
 
 plot_single_species(ax_li, "Li", all_df)
-plot_single_species(ax_na, "Na", all_df)
 plot_single_species(ax_k, "K", all_df)
 
-ax_li.legend(frameon=False, title=r"$c^*$ / mM")
-ax_na.legend(frameon=False, title=r"$c^*$ / mM", ncol=1)
-ax_k.legend(frameon=False, title=r"$c^*$ / mM")
 
-ax_li.set_xlim([-1.4, -0.9])
-ax_na.set_xlim([-1.4, -0.9])
-ax_k.set_xlim([-1.5, -1.0])
-ax_li.set_ylim([-4.7, -2.5])
-ax_na.set_ylim([-4.7, -2])
-ax_k.set_ylim([-5, 0.5])
+ax_li.set_xlim([-1.1, -0.4])
+ax_k.set_xlim([-1.1, -0.4])
+ax_li.set_ylim([-5, -1])
+ax_k.set_ylim([-5, -1])
 
-labels = [r"(a) Li$^+$", r"(b) Na$^+$", r"(c) K$^+$", "(d)", "(e)", "(f)"]
+labels = [r"(a) Li$^+$", r"(b) K$^+$", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
     # label physical distance to the left and up:
     trans = mtransforms.ScaledTranslation(-25 / 72, 10 / 72, fig.dpi_scale_trans)
@@ -110,5 +130,5 @@ for label, axis in zip(labels, fig.axes):
     axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/quantitative.pdf")
+plt.savefig("figures/quantitativept.pdf")
 plt.show()
