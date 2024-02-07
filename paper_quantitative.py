@@ -71,7 +71,7 @@ p = np.polyfit(
     li_select["log j"],
     deg=1,
 )
-print(p)
+print(p[0] * np.log(10))
 phi_axis = np.linspace(-2, 0, 100)
 logj_axis = np.polyval(p, C.BETA * C.E_0 * phi_axis)
 
