@@ -14,8 +14,7 @@ import plotting as P
 import kinetics
 
 DELTAG = 1.37 * C.E_0
-DEFAULT_P_H_CATSIZE = 11
-DEFAULT_P_H_CONCENT = 11
+DEFAULT_PH = 11
 NUM_PTS = 200
 
 rcParams["lines.linewidth"] = 0.75
@@ -33,10 +32,6 @@ ph_list = [10, 11, 12, 13]
 
 current_conc_frumkin = np.zeros((len(conc_list), NUM_PTS))
 current_gamma_frumkin = np.zeros((len(gamma_list), NUM_PTS))
-current_ph_frumkin = np.zeros((len(ph_list), NUM_PTS))
-current_conc_marcus = np.zeros((len(conc_list), NUM_PTS))
-current_gamma_marcus = np.zeros((len(gamma_list), NUM_PTS))
-current_ph_marcus = np.zeros((len(ph_list), NUM_PTS))
 
 for i, conc in enumerate(conc_list):
     model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2)
@@ -56,20 +51,16 @@ for i, gamma in enumerate(gamma_list):
 
 model = models.DoubleLayerModel(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2)
 sol = model.potential_sweep(potentials)
-for i, p_h in enumerate(ph_list):
-    current_ph_frumkin[i, :] = kinetics.frumkin_corrected_current(
-        sol,
-        deltag=DELTAG,
-    )
+current_ph_frumkin = kinetics.frumkin_corrected_current(
+    sol,
+    deltag=DELTAG,
+)
 
 fig = plt.figure(figsize=(6.69423, 2))
 gs = GridSpec(nrows=1, ncols=3)
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[0, 2])
-# ax1_marcus = fig.add_subplot(gs[1, 0])
-# ax2_marcus = fig.add_subplot(gs[1, 1])
-# ax3_marcus = fig.add_subplot(gs[1, 2])
 
 colors = P.get_color_gradient(len(conc_list))
 red = P.get_color_gradient(len(gamma_list), color="red")
@@ -77,57 +68,30 @@ purple = P.get_color_gradient(len(ph_list), color="purple")
 
 for i, conc in enumerate(conc_list):
     ax1.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CONCENT,
+        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_PH,
         current_conc_frumkin[i, :] * 1e-1,
         color=colors[i],
         label=f"{conc*1e3:.0f}",
     )
-    # ax1_marcus.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CONCENT,
-    #     current_conc_marcus[i, :] * 1e-1,
-    #     color=colors[i],
-    #     label=f"{conc*1e3:.0f}",
-    # )
 
 for i, gamma in enumerate(gamma_list):
     ax2.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CATSIZE,
+        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_PH,
         current_gamma_frumkin[i, :] * 1e-1,
         color=red[i],
         label=f"{gamma:.0f}",
     )
-    # ax2_marcus.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CATSIZE,
-    #     current_gamma_marcus[i, :] * 1e-1,
-    #     color=red[i],
-    #     label=f"{gamma:.0f}",
-    # )
 
-for i, p_h in enumerate(ph_list):
-    ax3.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * p_h,
-        current_ph_frumkin[i, :] * 1e-1,
-        color=purple[i],
-        label=f"{p_h:.0f}",
-    )
-    # ax3_marcus.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * p_h,
-    #     current_ph_marcus[i, :] * 1e-1,
-    #     color=purple[i],
-    #     label=f"{p_h:.0f}",
-    # )
+ax3.plot(
+    potentials + C.AU_PZC_SHE_V,
+    current_ph_frumkin * 1e-1,
+    color="k",
+)
 
-
-ax1.legend(loc="lower right", frameon=False, title=r"$c^*$ / mM")
+ax1.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
-ax3.legend(loc="lower right", frameon=False, title=r"pH")
-
-ax1.set_ylim([-2, 0.1])
-# ax1_marcus.set_ylim([-1.5, 0])
-ax2.set_ylim([-2, 0.1])
-# ax2_marcus.set_ylim([-20, 0])
-ax3.set_ylim([-1.5, 0.1])
-# ax3_marcus.set_ylim([-3, 0])
+ax1.set_xticks([-0.6, -0.4, -0.2])
+ax2.set_xticks([-0.6, -0.4, -0.2])
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
@@ -143,11 +107,14 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
-    axis.set_xticks([-0.6, -0.4, -0.2])
     axis.set_xlim([-0.7, -0.1])
+    axis.set_ylim([-2, 0.1])
+
+ax3.set_ylim([-1.5, 0.1])
+ax3.set_xlim([-0.7 - 59e-3 * DEFAULT_PH, -0.1 - 59e-3 * DEFAULT_PH])
+ax3.set_xlabel(r"$\mathsf{E}$ / V vs. SHE")
 
 plt.tight_layout()
-
 plt.savefig("figures/res-current-gold.pdf", dpi=240)
 
 plt.show()

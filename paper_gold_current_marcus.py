@@ -14,8 +14,7 @@ import plotting as P
 import kinetics
 
 REORG = 4.35 * C.E_0
-DEFAULT_P_H_CATSIZE = 13
-DEFAULT_P_H_CONCENT = 11
+PH_VAL = 11
 NUM_PTS = 200
 
 rcParams["lines.linewidth"] = 0.75
@@ -58,18 +57,14 @@ for i, gamma in enumerate(gamma_list):
 
 model = models.DoubleLayerModel(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2)
 sol = model.potential_sweep(potentials)
-for i, p_h in enumerate(ph_list):
-    current_ph_marcus[i, :] = kinetics.marcus_current(
-        sol,
-        pzc_she=C.AU_PZC_SHE_V,
-        reorg=REORG,
-    )
+current_ph_marcus = kinetics.marcus_current(
+    sol,
+    pzc_she=C.AU_PZC_SHE_V,
+    reorg=REORG,
+)
 
 fig = plt.figure(figsize=(6.69423, 2))
 gs = GridSpec(nrows=1, ncols=3)
-# ax1 = fig.add_subplot(gs[0, 0])
-# ax2 = fig.add_subplot(gs[0, 1])
-# ax3 = fig.add_subplot(gs[0, 2])
 ax1_marcus = fig.add_subplot(gs[0, 0])
 ax2_marcus = fig.add_subplot(gs[0, 1])
 ax3_marcus = fig.add_subplot(gs[0, 2])
@@ -79,55 +74,34 @@ red = P.get_color_gradient(len(gamma_list), color="red")
 purple = P.get_color_gradient(len(ph_list), color="purple")
 
 for i, conc in enumerate(conc_list):
-    # ax1.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CONCENT,
-    #     current_conc_frumkin[i, :] * 1e-1,
-    #     color=colors[i],
-    #     label=f"{conc*1e3:.0f}",
-    # )
     ax1_marcus.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CONCENT,
+        potentials + C.AU_PZC_SHE_V + 59e-3 * PH_VAL,
         current_conc_marcus[i, :] * 1e-1,
         color=colors[i],
         label=f"{conc*1e3:.0f}",
     )
 
 for i, gamma in enumerate(gamma_list):
-    # ax2.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CATSIZE,
-    #     current_gamma_frumkin[i, :] * 1e-1,
-    #     color=red[i],
-    #     label=f"{gamma:.0f}",
-    # )
     ax2_marcus.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * DEFAULT_P_H_CATSIZE,
+        potentials + C.AU_PZC_SHE_V + 59e-3 * PH_VAL,
         current_gamma_marcus[i, :] * 1e-1,
         color=red[i],
         label=f"{gamma:.0f}",
     )
 
-for i, p_h in enumerate(ph_list):
-    # ax3.plot(
-    #     potentials + C.AU_PZC_SHE_V + 59e-3 * p_h,
-    #     current_ph_frumkin[i, :] * 1e-1,
-    #     color=purple[i],
-    #     label=f"{p_h:.0f}",
-    # )
-    ax3_marcus.plot(
-        potentials + C.AU_PZC_SHE_V + 59e-3 * p_h,
-        current_ph_marcus[i, :] * 1e-1,
-        color=purple[i],
-        label=f"{p_h:.0f}",
-    )
+ax3_marcus.plot(
+    potentials + C.AU_PZC_SHE_V,
+    current_ph_marcus * 1e-1,
+    color=purple[i],
+)
 
 
-ax1_marcus.legend(loc="lower right", frameon=False, title=r"$c^*$ / mM")
+ax1_marcus.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 ax2_marcus.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
-ax3_marcus.legend(loc="lower right", frameon=False, title=r"pH")
 
 ax1_marcus.set_ylim([-2, 0.1])
 ax2_marcus.set_ylim([-2, 0.1])
-ax3_marcus.set_ylim([-1.5, 0.1])
+ax3_marcus.set_ylim([-1.0, 0.1])
 
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
@@ -144,8 +118,12 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
-    axis.set_xticks([-0.6, -0.4, -0.2])
     axis.set_xlim([-0.7, -0.1])
+
+ax1_marcus.set_xticks([-0.6, -0.4, -0.2])
+ax2_marcus.set_xticks([-0.6, -0.4, -0.2])
+ax3_marcus.set_xlim([-0.7 - 59e-3 * PH_VAL, -0.1 - 59e-3 * PH_VAL])
+ax3_marcus.set_xlabel(r"$\mathsf{E}$ / V vs. SHE")
 
 plt.tight_layout()
 
