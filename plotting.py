@@ -5,7 +5,7 @@ Plotting tools for double-layer models
 import numpy as np
 
 GAMMA_LIST = [4, 5, 6, 7]
-CONC_LIST = [1e-3, 1e-2, 1e-1, 5e-1]
+CONC_LIST = [1e-3, 1e-2, 1e-1, 1]
 DEFAULT_GAMMA = 6
 DEFAULT_CONC_M = 100e-3
 
