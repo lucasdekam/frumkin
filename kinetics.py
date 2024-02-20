@@ -1,6 +1,7 @@
 """
 Functions for converting PotentialSweepSolutions into reaction currents.
 """
+
 import numpy as np
 import pandas as pd
 
