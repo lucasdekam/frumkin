@@ -39,13 +39,8 @@ def plot_single_species(ax, species, df):
         if ph in dataframe["pH"].values
     }
 
-    # I'm lazy so I predefine concentrations
-    legend_entries = {
-        0.005: [],
-        0.025: [],
-        0.050: [],
-        0.100: [],
-    }
+    unique_phs = []
+    unique_concentrations = []
 
     for ph, df in ph_dfs.items():
         groupby_dict = df.groupby("c").indices
@@ -57,7 +52,7 @@ def plot_single_species(ax, species, df):
         }
         for c, indices in groupby_dict.items():
             select_df = df.iloc[indices]
-            (p,) = ax.plot(
+            ax.plot(
                 select_df["phi0"] - select_df["phi_rp"],
                 select_df["log j"],
                 marker=PH_MARKERS[ph],
@@ -69,29 +64,70 @@ def plot_single_species(ax, species, df):
                 # label=f"{c*1e3:.0f}",
             )
 
-            legend_entries[c].append(p)
+            if ph not in unique_phs:
+                unique_phs.append(ph)
+            if c not in unique_concentrations:
+                unique_concentrations.append(c)
 
-    print([tuple(legend_entries[c]) for c in legend_entries.keys()])
-    print(list(legend_entries.keys()))
-    ax.legend(
-        [tuple(legend_entries[c]) for c in legend_entries.keys()],
-        [f"{c*1e3:.0f}" for c in legend_entries.keys()],
-        handler_map={tuple: HandlerTuple(ndivide=None)},
+    onecolor = "black"
+    ph_handles = []
+    for ph in unique_phs:
+        (p,) = ax.plot(
+            [],
+            [],
+            color=onecolor,
+            marker=PH_MARKERS[ph],
+            fillstyle=PH_FILLSTYLE[ph],
+            markeredgewidth=0.5,
+            markersize=3,
+            linestyle="None",
+        )
+        ph_handles.append(p)
+    ph_legend = ax.legend(
+        ph_handles,
+        unique_phs,
         frameon=False,
-        title=r"$c^*$ / mM",
+        loc="lower right",
+        title="pH",
     )
+
+    conc_handles = []
+    colors = P.get_color_gradient(
+        len(unique_concentrations),
+        color=SPECIES_COLORS[species],
+    )
+    for i, c in enumerate(unique_concentrations):
+        (p,) = ax.plot(
+            [],
+            [],
+            color=colors[i],
+            linewidth=3,
+        )
+        conc_handles.append(p)
+    conc_legend = ax.legend(
+        conc_handles,
+        [f"{c*1e3:.0f}" for c in unique_concentrations],
+        frameon=False,
+        loc="upper right",
+        title=r"$c^*$ / mM",
+        handlelength=1,
+    )
+
+    ax.add_artist(ph_legend)
+    ax.add_artist(conc_legend)
 
 
 all_df = pd.read_csv("data/pt_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 5))
+fig = plt.figure(figsize=(3.248, 5.5))
 ax_li = fig.add_subplot(211)
 ax_k = fig.add_subplot(212)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
+# li_select = li_select[li_select["pH"] == 13]
 p = np.polyfit(
     C.BETA * C.E_0 * (li_select["phi0"] - li_select["phi_rp"]),
     li_select["log j"],
@@ -107,7 +143,6 @@ for axis in fig.axes:
 
 plot_single_species(ax_li, "Li", all_df)
 plot_single_species(ax_k, "K", all_df)
-
 
 ax_li.set_xlim([-1.1, -0.4])
 ax_k.set_xlim([-1.1, -0.4])
