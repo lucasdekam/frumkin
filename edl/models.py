@@ -293,6 +293,9 @@ class DoubleLayerModel:
         sweep_df["cat_2"] = np.array(
             [_get_stern_qty(profile, "cations") for profile in all_profiles]
         )
+        sweep_df["ani_2"] = np.array(
+            [_get_stern_qty(profile, "anions") for profile in all_profiles]
+        )
         sweep_df["sol_2"] = np.array(
             [_get_stern_qty(profile, "solvent") for profile in all_profiles]
         )
