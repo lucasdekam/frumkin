@@ -62,15 +62,13 @@ for i, p_h in enumerate(ph_list):
         deltag=DELTAG,
     )
 
-fig = plt.figure(figsize=(6.69423, 2))
-gs = GridSpec(nrows=1, ncols=3)
+fig = plt.figure(figsize=(3.248, 4.5))
+gs = GridSpec(nrows=2, ncols=1)
 ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[0, 1])
-ax3 = fig.add_subplot(gs[0, 2])
+ax2 = fig.add_subplot(gs[1, 0])
 
-blue = P.get_color_gradient(len(conc_list))
 red = P.get_color_gradient(len(conc_list), color="red")
-purple = P.get_color_gradient(len(conc_list), color="purple")
+blue = P.get_color_gradient(len(P.GAMMA_LIST))
 
 for i, conc in enumerate(conc_list):
     ax1.plot(
@@ -80,7 +78,6 @@ for i, conc in enumerate(conc_list):
         label=f"{conc*1e3:.0f}",
     )
 
-blue = P.get_color_gradient(len(P.GAMMA_LIST))
 for i, gamma in enumerate(P.GAMMA_LIST):
     ax2.plot(
         potentials_v_rhe,
@@ -89,29 +86,17 @@ for i, gamma in enumerate(P.GAMMA_LIST):
         label=f"{gamma:.0f}",
     )
 
-blue = P.get_color_gradient(len(ph_list))
-for i, p_h in enumerate(ph_list):
-    ax3.plot(
-        potentials_v_rhe,
-        current_ph[i, :] * 1e-1,
-        color=purple[i],
-        label=f"{p_h:.0f}",
-    )
-
-# axa.set_xlim([-0.2])
 ax1.set_xlim([-0.2, 0.2])
 ax2.set_xlim([-0.2, 0.2])
-ax3.set_xlim([-0.2, 0.2])
+ax1.set_xticks([-0.2, -0.1, 0, 0.1, 0.2])
+ax2.set_xticks([-0.2, -0.1, 0, 0.1, 0.2])
 ax1.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
 ax2.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
-ax3.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
 ax1.set_ylabel(r"$j$ / mA cm$^{-2}$")
 ax2.set_ylabel(r"$j$ / mA cm$^{-2}$")
-ax3.set_ylabel(r"$j$ / mA cm$^{-2}$")
 
-ax1.legend(loc="lower right", frameon=False, title=r"$c^*$ / mM")
+ax1.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
-ax3.legend(loc="lower right", frameon=False, title=r"pH")
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)"]
 for label, axis in zip(labels, fig.axes):
@@ -127,7 +112,7 @@ for label, axis in zip(labels, fig.axes):
     )
 
 plt.tight_layout()
-
+plt.subplots_adjust(left=0.3, right=0.8)
 plt.savefig("figures/res-current-pt.pdf", dpi=240)
 
 plt.show()
