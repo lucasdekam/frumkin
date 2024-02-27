@@ -109,7 +109,7 @@ def plot_single_species(ax, species, df):
         [f"{c*1e3:.0f}" for c in unique_concentrations],
         frameon=False,
         loc="upper right",
-        title=r"$c^*$ / mM",
+        title=r"$c_+^*$ / mM",
         handlelength=1,
     )
 
@@ -127,7 +127,7 @@ ax_k = fig.add_subplot(212)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
-# li_select = li_select[li_select["pH"] == 13]
+li_select = li_select[li_select["pH"] == 13]
 p = np.polyfit(
     C.BETA * C.E_0 * (li_select["phi0"] - li_select["phi_rp"]),
     li_select["log j"],
