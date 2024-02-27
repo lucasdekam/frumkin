@@ -121,9 +121,9 @@ all_df = pd.read_csv("data/pt_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 5.5))
-ax_li = fig.add_subplot(211)
-ax_k = fig.add_subplot(212)
+fig = plt.figure(figsize=(6.69423, 3))
+ax_li = fig.add_subplot(121)
+ax_k = fig.add_subplot(122)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]

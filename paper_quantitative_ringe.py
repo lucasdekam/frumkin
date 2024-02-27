@@ -59,7 +59,7 @@ all_df = pd.read_csv("data/au_df_ringe.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 3))
+fig = plt.figure(figsize=(6.69423, 3))
 ax_all = fig.add_subplot()
 
 # Fit Li data
@@ -101,5 +101,6 @@ ax_all.set_xlabel(r"$\phi_0 - \phi'$ / V")
 ax_all.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
+plt.subplots_adjust(left=0.3, right=0.8)
 plt.savefig("figures/quantitative_ringe.pdf")
 plt.show()
