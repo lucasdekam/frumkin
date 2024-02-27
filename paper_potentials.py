@@ -173,7 +173,7 @@ for i, ph in enumerate(ph_list):
     )
     print(
         np.gradient(
-            np.log10(oh_conc) / C.BETA / C.E_0,
+            np.log(oh_conc) / C.BETA / C.E_0,
             potentials_v_pzc,
         )[0],
     )
