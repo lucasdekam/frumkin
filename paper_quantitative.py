@@ -59,10 +59,10 @@ all_df = pd.read_csv("data/au_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(3.248, 8))
-ax_li = fig.add_subplot(311)
-ax_na = fig.add_subplot(312)
-ax_k = fig.add_subplot(313)
+fig = plt.figure(figsize=(5.4167, 5.4))
+ax_li = fig.add_subplot(221)
+ax_na = fig.add_subplot(222)
+ax_k = fig.add_subplot(223)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
@@ -83,9 +83,9 @@ plot_single_species(ax_li, "Li", all_df)
 plot_single_species(ax_na, "Na", all_df)
 plot_single_species(ax_k, "K", all_df)
 
-ax_li.legend(frameon=False, title=r"$c^*$ / mM")
-ax_na.legend(frameon=False, title=r"$c^*$ / mM", ncol=1)
-ax_k.legend(frameon=False, title=r"$c^*$ / mM")
+ax_li.legend(frameon=False, title=r"$c_+^*$ / mM")
+ax_na.legend(frameon=False, title=r"$c_+^*$ / mM", ncol=1)
+ax_k.legend(frameon=False, title=r"$c_+^*$ / mM")
 
 ax_li.set_xlim([-1.4, -0.9])
 ax_na.set_xlim([-1.4, -0.9])
@@ -110,5 +110,5 @@ for label, axis in zip(labels, fig.axes):
     axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/quantitative.pdf")
+plt.savefig("figures/res-quantitative.pdf")
 plt.show()

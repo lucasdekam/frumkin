@@ -29,16 +29,16 @@ ph_list = [10, 11, 12, 13]
 potentials_v_pzc = np.linspace(-2, 0, 100)
 
 # figure setup
-fig_phi = plt.figure(figsize=(6.69423, 4))
+fig_phi = plt.figure(figsize=(5.4167, 4))
 gs = GridSpec(nrows=2, ncols=2)
 ax_phi_cbulk = fig_phi.add_subplot(gs[0, 0])
 ax_phi_gamma = fig_phi.add_subplot(gs[1, 0])
 ax_phirp_cbulk = fig_phi.add_subplot(gs[0, 1])
 ax_phirp_gamma = fig_phi.add_subplot(gs[1, 1])
 
-fig_conc = plt.figure(figsize=(3.248, 4))
-ax_cat_cbulk = fig_conc.add_subplot(211)
-ax_oh_phbulk = fig_conc.add_subplot(212)
+fig_conc = plt.figure(figsize=(5.4167, 2))
+ax_cat_cbulk = fig_conc.add_subplot(121)
+ax_oh_phbulk = fig_conc.add_subplot(122)
 
 colors1 = plotting.get_color_gradient(len(cbulk_list))
 colors2 = plotting.get_color_gradient(len(gamma_list), color="red")
@@ -99,7 +99,7 @@ for i, gamma in enumerate(gamma_list):
     label=r"$\phi_0$",
 )
 
-ax_phirp_gamma.set_xlabel(r"$\mathsf{E}$ / V vs. SHE")
+ax_phirp_gamma.set_xlabel(r"$\mathsf{E}$ vs. SHE / V")
 ax_phirp_gamma.set_xlim([-1.5, 0.5])
 ax_phirp_gamma.set_ylabel(r"$\phi$ / V")
 ax_phirp_gamma.set_ylim([-2, 0])
@@ -134,7 +134,7 @@ for i, conc in enumerate(cbulk_list):
     label=r"$\phi_0$",
 )
 
-ax_phirp_cbulk.set_xlabel(r"$\mathsf{E}$ / V vs. SHE")
+ax_phirp_cbulk.set_xlabel(r"$\mathsf{E}$ vs. SHE / V")
 ax_phirp_cbulk.set_xlim([-1.5, 0.5])
 ax_phirp_cbulk.set_ylabel(r"$\phi$ / V")
 ax_phirp_cbulk.set_ylim([-2, 0])
@@ -159,7 +159,7 @@ for i, conc in enumerate(cbulk_list):
 ax_cat_cbulk.set_ylim([0, 7])
 ax_cat_cbulk.set_xlim([-1.5, 0.5])
 ax_cat_cbulk.set_ylabel(r"$c_+(x_2)$ / M")
-ax_cat_cbulk.set_xlabel(r"E / V vs. SHE")
+ax_cat_cbulk.set_xlabel(r"E vs. SHE / V")
 ax_cat_cbulk.legend(frameon=False, title=r"$c_+^*$ / mM")
 
 # oh- concentration profiles
@@ -185,7 +185,7 @@ ax_oh_phbulk.set_yscale("log")
 ax_oh_phbulk.set_xlim([-1.5, 0.5])
 ax_oh_phbulk.set_ylim([1e-25, 1])
 ax_oh_phbulk.set_ylabel(r"$c_\mathrm{OH^-}(x_2)$ / M")
-ax_oh_phbulk.set_xlabel(r"E / V vs. SHE")
+ax_oh_phbulk.set_xlabel(r"E vs. SHE / V")
 ax_oh_phbulk.legend(frameon=False, title=r"pH", loc="lower right")
 
 # subfigure labelling
@@ -214,9 +214,9 @@ for label, axis in zip(labels, fig_conc.axes):
     )
 
 fig_phi.tight_layout()
-fig_phi.subplots_adjust(left=0.25, right=0.85, wspace=0.5)
+fig_phi.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
 fig_conc.tight_layout()
-fig_conc.subplots_adjust(left=0.25, right=0.85)
+fig_conc.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
 
 fig_phi.savefig("figures/phi-profiles.pdf")
 fig_conc.savefig("figures/concentration-epot.pdf")

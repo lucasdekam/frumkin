@@ -56,11 +56,10 @@ current_ph_frumkin = kinetics.frumkin_corrected_current(
     deltag=DELTAG,
 )
 
-fig = plt.figure(figsize=(6.69423, 2))
-gs = GridSpec(nrows=1, ncols=3)
-ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[0, 1])
-ax3 = fig.add_subplot(gs[0, 2])
+fig = plt.figure(figsize=(5.4167, 4))
+ax1 = fig.add_subplot(221)
+ax2 = fig.add_subplot(222)
+ax3 = fig.add_subplot(223)
 
 colors = P.get_color_gradient(len(conc_list))
 red = P.get_color_gradient(len(gamma_list), color="red")
@@ -105,16 +104,17 @@ for label, axis in zip(labels, fig.axes):
         fontsize="medium",
         va="bottom",
     )
-    axis.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
+    axis.set_xlabel(r"$\mathsf{E}$ vs. RHE / V")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
     axis.set_xlim([-0.7, -0.1])
     axis.set_ylim([-2, 0.1])
 
 ax3.set_ylim([-1.5, 0.1])
 ax3.set_xlim([-0.7 - 59e-3 * DEFAULT_PH, -0.1 - 59e-3 * DEFAULT_PH])
-ax3.set_xlabel(r"$\mathsf{E}$ / V vs. SHE")
+ax3.set_xlabel(r"$\mathsf{E}$ vs. SHE / V")
 
 plt.tight_layout()
+plt.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
 plt.savefig("figures/res-current-gold.pdf", dpi=240)
 
 plt.show()

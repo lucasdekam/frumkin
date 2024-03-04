@@ -59,7 +59,7 @@ all_df = pd.read_csv("data/au_df_ringe.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(6.69423, 3))
+fig = plt.figure(figsize=(5.4167, 3))
 ax_all = fig.add_subplot()
 
 # Fit Li data

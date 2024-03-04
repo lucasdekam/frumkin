@@ -62,10 +62,9 @@ for i, p_h in enumerate(ph_list):
         deltag=DELTAG,
     )
 
-fig = plt.figure(figsize=(3.248, 4.5))
-gs = GridSpec(nrows=2, ncols=1)
-ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[1, 0])
+fig = plt.figure(figsize=(5.4167, 2))
+ax1 = fig.add_subplot(121)
+ax2 = fig.add_subplot(122)
 
 red = P.get_color_gradient(len(conc_list), color="red")
 blue = P.get_color_gradient(len(P.GAMMA_LIST))
@@ -90,8 +89,8 @@ ax1.set_xlim([-0.2, 0.2])
 ax2.set_xlim([-0.2, 0.2])
 ax1.set_xticks([-0.2, -0.1, 0, 0.1, 0.2])
 ax2.set_xticks([-0.2, -0.1, 0, 0.1, 0.2])
-ax1.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
-ax2.set_xlabel(r"$\mathsf{E}$ / V vs. RHE")
+ax1.set_xlabel(r"$\mathsf{E}$ vs. RHE / V")
+ax2.set_xlabel(r"$\mathsf{E}$ vs. RHE / V")
 ax1.set_ylabel(r"$j$ / mA cm$^{-2}$")
 ax2.set_ylabel(r"$j$ / mA cm$^{-2}$")
 
@@ -112,7 +111,7 @@ for label, axis in zip(labels, fig.axes):
     )
 
 plt.tight_layout()
-plt.subplots_adjust(left=0.3, right=0.8)
+plt.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
 plt.savefig("figures/res-current-pt.pdf", dpi=240)
 
 plt.show()

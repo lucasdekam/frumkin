@@ -121,7 +121,7 @@ all_df = pd.read_csv("data/pt_df.csv")
 # all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(6.69423, 3))
+fig = plt.figure(figsize=(5.4167, 3))
 ax_li = fig.add_subplot(121)
 ax_k = fig.add_subplot(122)
 
