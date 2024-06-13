@@ -90,8 +90,8 @@ ax3.plot(
 
 ax1.legend(loc="lower right", frameon=False, title=r"$c_+^*$ / mM")
 ax2.legend(loc="lower right", frameon=False, title=r"$\gamma_+$")
-ax1.set_xticks([-0.6, -0.4, -0.2])
-ax2.set_xticks([-0.6, -0.4, -0.2])
+ax1.set_xticks([-0.6, -0.4, -0.2, 0])
+ax2.set_xticks([-0.6, -0.4, -0.2, 0])
 
 labels = ["(a)", "(b)", "(c)", "(d)", "(e)", "(f)"]
 for label, axis in zip(labels, fig.axes):
@@ -107,11 +107,11 @@ for label, axis in zip(labels, fig.axes):
     )
     axis.set_xlabel(r"$\mathsf{E}$ vs. RHE / V")
     axis.set_ylabel(r"$j$ / mA cm$^{-2}$")
-    axis.set_xlim([-0.7, -0.1])
+    axis.set_xlim([-0.7, 0])
     axis.set_ylim([-2, 0.1])
 
 ax3.set_ylim([-1.5, 0.1])
-ax3.set_xlim([-0.7 - 59e-3 * DEFAULT_PH, -0.1 - 59e-3 * DEFAULT_PH])
+ax3.set_xlim([-1.4, -0.4])
 ax3.set_xlabel(r"$\mathsf{E}$ vs. SHE / V")
 
 plt.tight_layout()
