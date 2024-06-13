@@ -11,6 +11,7 @@ from edl import constants as C
 def frumkin_corrected_current(
     sol: pd.DataFrame,
     deltag: float,
+    alpha: float = 0.5,
 ) -> np.ndarray:
     """
     Compute the Frumkin-corrected current:
@@ -29,7 +30,7 @@ def frumkin_corrected_current(
         / C.BETA
         / C.PLANCK
         * np.exp(-C.BETA * deltag)
-        * np.exp(-0.5 * C.E_0 * C.BETA * (sol["phi0"] - sol["phi_rp"]))
+        * np.exp(-alpha * C.E_0 * C.BETA * (sol["phi0"] - sol["phi_rp"]))
         * 5e18
     )
     return current
