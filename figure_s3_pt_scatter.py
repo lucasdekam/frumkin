@@ -165,5 +165,5 @@ for label, axis in zip(labels, fig.axes):
     axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/quantitativept_pzc-054.pdf")
+plt.savefig("figures/quantitativept_pzc.pdf")
 plt.show()
