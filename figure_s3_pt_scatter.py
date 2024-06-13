@@ -144,8 +144,8 @@ for axis in fig.axes:
 plot_single_species(ax_li, "Li", all_df)
 plot_single_species(ax_k, "K", all_df)
 
-ax_li.set_xlim([-0.5, 0.2])
-ax_k.set_xlim([-0.5, 0.2])
+ax_li.set_xlim([-1.1, -0.4])
+ax_k.set_xlim([-1.1, -0.4])
 ax_li.set_ylim([-5, -1])
 ax_k.set_ylim([-5, -1])
 
