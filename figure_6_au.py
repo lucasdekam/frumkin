@@ -18,7 +18,7 @@ DEFAULT_PH = 11
 NUM_PTS = 200
 
 rcParams["lines.linewidth"] = 0.75
-rcParams["font.size"] = 8
+rcParams["font.size"] = 7
 rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
@@ -56,10 +56,11 @@ current_ph_frumkin = kinetics.frumkin_corrected_current(
     deltag=DELTAG,
 )
 
-fig = plt.figure(figsize=(5.4167, 4))
-ax1 = fig.add_subplot(221)
-ax2 = fig.add_subplot(222)
-ax3 = fig.add_subplot(223)
+fig = plt.figure(figsize=(7.2507112558, 2))
+ax1 = fig.add_subplot(131)
+ax2 = fig.add_subplot(132)
+ax3 = fig.add_subplot(133)
+# plt.subplots_adjust(left=1, bottom=0, right=1, top=0, wspace=0, hspace=0)
 
 colors = P.get_color_gradient(len(conc_list))
 red = P.get_color_gradient(len(gamma_list), color="red")
@@ -114,7 +115,7 @@ ax3.set_xlim([-0.7 - 59e-3 * DEFAULT_PH, -0.1 - 59e-3 * DEFAULT_PH])
 ax3.set_xlabel(r"$\mathsf{E}$ vs. SHE / V")
 
 plt.tight_layout()
-plt.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
-plt.savefig("figures/res-current-gold.pdf", dpi=240)
+plt.subplots_adjust(left=0.13, right=0.94)
+plt.savefig("figures/gr6.pdf", dpi=150)
 
 plt.show()

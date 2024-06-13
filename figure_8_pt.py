@@ -14,7 +14,7 @@ import plotting as P
 import kinetics
 
 rcParams["lines.linewidth"] = 0.75
-rcParams["font.size"] = 8
+rcParams["font.size"] = 7
 rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
@@ -22,8 +22,9 @@ rcParams["ytick.major.width"] = 0.5
 ALPHA = 0.5
 PH_VAL = 13
 DELTAG = 0.87 * C.E_0
+PT_PZC_SHE_V = 0.51
 
-potentials_v_rhe = np.linspace(-0.2, C.PT_PZC_SHE_V + 59e-3 * 13, 100)
+potentials_v_rhe = np.linspace(-0.2, PT_PZC_SHE_V + 59e-3 * 13, 100)
 
 conc_list = [1e-3, 10e-3, 100e-3, 1000e-3]
 ph_list = [10, 11, 12, 13]
@@ -37,7 +38,7 @@ phi2_gamm = np.zeros((len(P.GAMMA_LIST), len(potentials_v_rhe)))
 
 for i, conc in enumerate(conc_list):
     model = models.DoubleLayerModel(conc, P.DEFAULT_GAMMA, 2)
-    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - C.PT_PZC_SHE_V)
+    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - PT_PZC_SHE_V)
     current_conc[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
@@ -46,7 +47,7 @@ for i, conc in enumerate(conc_list):
 
 for i, gamma in enumerate(P.GAMMA_LIST):
     model = models.DoubleLayerModel(P.DEFAULT_CONC_M, gamma, 2)
-    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - C.PT_PZC_SHE_V)
+    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * PH_VAL - PT_PZC_SHE_V)
     current_gamma[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
@@ -55,14 +56,14 @@ for i, gamma in enumerate(P.GAMMA_LIST):
 
 for i, p_h in enumerate(ph_list):
     model = models.DoubleLayerModel(P.DEFAULT_CONC_M, P.DEFAULT_GAMMA, 2)
-    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * p_h - C.PT_PZC_SHE_V)
+    sol = model.potential_sweep(potentials_v_rhe - 59e-3 * p_h - PT_PZC_SHE_V)
     current_ph[i, :] = kinetics.transport_limited_current(
         sol,
         alpha=ALPHA,
         deltag=DELTAG,
     )
 
-fig = plt.figure(figsize=(5.4167, 2))
+fig = plt.figure(figsize=(7.2507112558, 2))  # 3.50035555836, 3.9))
 ax1 = fig.add_subplot(121)
 ax2 = fig.add_subplot(122)
 
@@ -111,7 +112,7 @@ for label, axis in zip(labels, fig.axes):
     )
 
 plt.tight_layout()
-plt.subplots_adjust(left=0.15, right=0.9, wspace=0.5)
-plt.savefig("figures/res-current-pt.pdf", dpi=240)
+plt.subplots_adjust(left=0.24, right=0.79, wspace=0.5)
+plt.savefig("figures/gr8.pdf", dpi=240)
 
 plt.show()

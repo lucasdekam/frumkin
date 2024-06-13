@@ -134,7 +134,7 @@ p = np.polyfit(
     deg=1,
 )
 print(p[0] * np.log(10))
-phi_axis = np.linspace(-2, 0, 100)
+phi_axis = np.linspace(-2, 1, 100)
 logj_axis = np.polyval(p, C.BETA * C.E_0 * phi_axis)
 
 # Plot on all axes and set labels
@@ -144,8 +144,8 @@ for axis in fig.axes:
 plot_single_species(ax_li, "Li", all_df)
 plot_single_species(ax_k, "K", all_df)
 
-ax_li.set_xlim([-1.1, -0.4])
-ax_k.set_xlim([-1.1, -0.4])
+ax_li.set_xlim([-0.5, 0.2])
+ax_k.set_xlim([-0.5, 0.2])
 ax_li.set_ylim([-5, -1])
 ax_k.set_ylim([-5, -1])
 
@@ -165,5 +165,5 @@ for label, axis in zip(labels, fig.axes):
     axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/quantitativept.pdf")
+plt.savefig("figures/quantitativept_pzc-054.pdf")
 plt.show()

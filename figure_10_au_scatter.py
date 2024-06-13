@@ -14,7 +14,7 @@ import plotting as P
 import edl.constants as C
 
 rcParams["lines.linewidth"] = 0.75
-rcParams["font.size"] = 8
+rcParams["font.size"] = 7
 rcParams["axes.linewidth"] = 0.5
 rcParams["xtick.major.width"] = 0.5
 rcParams["ytick.major.width"] = 0.5
@@ -56,13 +56,12 @@ def plot_single_species(ax, species, dataframe):
 
 
 all_df = pd.read_csv("data/au_df.csv")
-# all_df_ringe = pd.read_csv("data/all_df_ringe.csv")
 
 ## MAKE FIRST FIGURE
-fig = plt.figure(figsize=(5.4167, 5.4))
-ax_li = fig.add_subplot(221)
-ax_na = fig.add_subplot(222)
-ax_k = fig.add_subplot(223)
+fig = plt.figure(figsize=(7.2507112558, 2.75))
+ax_li = fig.add_subplot(131)
+ax_na = fig.add_subplot(132)
+ax_k = fig.add_subplot(133)
 
 # Fit Li data
 li_select = all_df[all_df["species"] == "Li"]
@@ -110,5 +109,5 @@ for label, axis in zip(labels, fig.axes):
     axis.set_ylabel(r"$\log |j|$ / A cm$^{-2}$")
 
 plt.tight_layout()
-plt.savefig("figures/res-quantitative.pdf")
+plt.savefig("figures/gr10.pdf")
 plt.show()
