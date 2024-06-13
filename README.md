@@ -1,4 +1,3 @@
-# double-layer-modelling
- Modelling of electrified interfaces using Poisson-Boltzmann theory
+# Double layer modelling
 
-See the branch `her-paper` for the code that was used to generate the plots in the arXiv paper https://arxiv.org/abs/2403.18418.
+This branch contains the code used to generate figures for my Master's thesis. 
