@@ -2,7 +2,7 @@
 
 This branch contains the code that was used to generate the computational results in the following paper:
 
-Maier, T. L., de Kam, L. B. T., Golibrzuch, M., Angerer, T., Becherer, M., & Krischer, K. (2024). How Metal/Insulator Interfaces Enable an Enhancement of the Hydrogen Evolution Reaction Kinetics. _ChemElectroChem_, e202400109.
+Maier, T. L., de Kam, L. B. T., Golibrzuch, M., Angerer, T., Becherer, M., & Krischer, K. (2024). How Metal/Insulator Interfaces Enable an Enhancement of the Hydrogen Evolution Reaction Kinetics. _ChemElectroChem_, e202400109. doi: https://doi.org/10.1002/celc.202400109 
 
 ## Abstract
 
