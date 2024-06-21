@@ -44,68 +44,45 @@ for i, conc in enumerate(concentration_range):
 
 
 # fig, ax = plt.subplots(figsize=(5, 4), nrows=2, ncols=2)
-fig = plt.figure(figsize=(5, 4))
-ax1 = fig.add_subplot(221)
-ax2 = fig.add_subplot(222)
-ax3 = fig.add_subplot(223)
-ax4 = fig.add_subplot(224)
+fig = plt.figure(figsize=(5, 3))
+ax3 = fig.add_subplot(121)
+ax4 = fig.add_subplot(122)
 colors1 = plotting.get_color_gradient(len(concentration_range))
 colors2 = plotting.get_color_gradient(len(concentration_range), color="red")
 
 for i, conc in enumerate(concentration_range):
-    ax1.plot(
-        solutions[i]["x"],
-        solutions[i]["phi"],
-        label=f"{conc*1e3:.0f}",
-        color=colors1[i],
-    )
-
-    ax2.plot(
-        solutions[i]["x"],
-        solutions[i]["cations"],
-        label=f"{conc*1e3:.0f}",
-        color=colors1[i],
-    )
-
     ax3.plot(
-        potentials,
+        sweeps[i]["charge"] * 100,
         sweeps[i]["eps"],
         label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
 
     ax4.plot(
-        potentials,
+        sweeps[i]["charge"] * 100,
         sweeps[i]["capacity"] * 100,
         label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
 
-ax1.set_ylabel(r"$\phi$ / V @ $\phi_0=-0.5$ V ")
-ax2.set_ylabel(r"$c_+$ / M @ $\phi_0=-0.5$ V ")
 ax3.set_ylabel(r"$\varepsilon/\varepsilon_0$")
 ax4.set_ylabel(r"$C$ / $\mu$F cm$^{-2}$")
 
-ax1.set_ylim([PHI0_V, 0.05])
 # ax2.set_ylim([0, 80])
 ax3.set_ylim([0, 80])
 # ax4.set_ylim([0, 150])
 
-ax1.set_xlabel(r"$x$ / nm")
-ax2.set_xlabel(r"$x$ / nm")
-ax3.set_xlabel(r"$\phi_0$ / V")
-ax4.set_xlabel(r"$\phi_0$ / V")
+ax3.set_xlabel(r"$\sigma$ / $\mu$C/cm$^2$")
+ax4.set_xlabel(r"$\sigma$ / $\mu$C/cm$^2$")
 
-ax1.set_xlim([0, 5])
-ax2.set_xlim([0, 5])
-ax3.set_xlim([potentials[0], potentials[-1]])
-ax4.set_xlim([potentials[0], potentials[-1]])
+# ax3.set_xlim([potentials[0], potentials[-1]])
+# ax4.set_xlim([potentials[0], potentials[-1]])
 
 # ax1.set_xticks([0, 1, 2, 3, 4, 5])
 # ax2.set_xticks([0, 1, 2, 3, 4, 5])
 # ax3.set_xticks([0, 1, 2, 3, 4, 5])
 
-ax1.legend(frameon=False, title=r"$c^*$ / mM")
+ax3.legend(frameon=False, title=r"$c^*$ / mM")
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, fig.axes):

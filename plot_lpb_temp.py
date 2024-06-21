@@ -19,6 +19,7 @@ rcParams["ytick.major.width"] = 0.5
 
 PHI0_V = -0.25
 X_2 = 2.8e-10
+CONC = 10e-3
 
 
 def stern(x, slope):  # pylint: disable=invalid-name
@@ -29,13 +30,13 @@ def stern(x, slope):  # pylint: disable=invalid-name
 
 
 potentials = np.linspace(-1, 1, 100)
-concentration_range = plotting.CONC_LIST
+temp_range = np.array([5, 25, 50, 75]) + 273.15
 
 solutions = []
 sweeps = []
 
-for i, conc in enumerate(concentration_range):
-    model = models.LangevinPoissonBoltzmann(conc, x2=X_2, delta=-1)
+for i, temp in enumerate(temp_range):
+    model = models.LangevinPoissonBoltzmann(CONC, x2=X_2, temp=temp, delta=-0.5)
     sweep_sol = model.potential_sweep(potentials, tol=1e-3)
     sweeps.append(sweep_sol)
 
@@ -49,35 +50,31 @@ ax1 = fig.add_subplot(221)
 ax2 = fig.add_subplot(222)
 ax3 = fig.add_subplot(223)
 ax4 = fig.add_subplot(224)
-colors1 = plotting.get_color_gradient(len(concentration_range))
-colors2 = plotting.get_color_gradient(len(concentration_range), color="red")
+colors1 = plotting.get_color_gradient(len(temp_range))
 
-for i, conc in enumerate(concentration_range):
+for i, temp in enumerate(temp_range):
     ax1.plot(
         solutions[i]["x"],
         solutions[i]["phi"],
-        label=f"{conc*1e3:.0f}",
+        label=f"{temp - 273.15:.0f}" + r"$^\circ$C",
         color=colors1[i],
     )
 
     ax2.plot(
         solutions[i]["x"],
         solutions[i]["cations"],
-        label=f"{conc*1e3:.0f}",
         color=colors1[i],
     )
 
     ax3.plot(
         potentials,
         sweeps[i]["eps"],
-        label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
 
     ax4.plot(
         potentials,
         sweeps[i]["capacity"] * 100,
-        label=f"{conc*1e3:.0f} mM",
         color=colors1[i],
     )
 
@@ -88,7 +85,7 @@ ax4.set_ylabel(r"$C$ / $\mu$F cm$^{-2}$")
 
 ax1.set_ylim([PHI0_V, 0.05])
 # ax2.set_ylim([0, 80])
-ax3.set_ylim([0, 80])
+ax3.set_ylim([0, 100])
 # ax4.set_ylim([0, 150])
 
 ax1.set_xlabel(r"$x$ / nm")
@@ -105,7 +102,7 @@ ax4.set_xlim([potentials[0], potentials[-1]])
 # ax2.set_xticks([0, 1, 2, 3, 4, 5])
 # ax3.set_xticks([0, 1, 2, 3, 4, 5])
 
-ax1.legend(frameon=False, title=r"$c^*$ / mM")
+ax1.legend(frameon=False)
 
 labels = ["(a)", "(b)", "(c)", "(d)"]
 for label, axis in zip(labels, fig.axes):
