@@ -1,6 +1,7 @@
 """
 Implementation of double-layer models
 """
+
 from abc import abstractmethod
 
 import numpy as np
@@ -18,12 +19,13 @@ class DoubleLayerModel:
     RHS of ODE and the definition of number densities abstract.
     """
 
-    def __init__(self, ion_concentration_molar: float) -> None:
+    def __init__(self, ion_concentration_molar: float, temp=C.T) -> None:
         self.c_0 = ion_concentration_molar
         self.n_0 = self.c_0 * 1e3 * C.N_A
         self.kappa_debye = np.sqrt(
-            2 * self.n_0 * (C.Z * C.E_0) ** 2 / (C.EPS_R_WATER * C.EPS_0 * C.K_B * C.T)
+            2 * self.n_0 * (C.Z * C.E_0) ** 2 / (C.EPS_R_WATER * C.EPS_0 * C.K_B * temp)
         )
+        self.T = temp
         self.name = "Unnamed"
 
     def create_x_mesh(self, xmax_nm, n_points):
@@ -240,9 +242,9 @@ class GouyChapmanStern(DoubleLayerModel):
             * C.EPS_0
             * np.cosh(C.BETA * C.Z * C.E_0 * potential / 2)
         )
-        chg = np.sqrt(8 * self.n_0 * C.K_B * C.T * C.EPS_R_WATER * C.EPS_0) * np.sinh(
-            C.BETA * C.Z * C.E_0 * potential / 2
-        )
+        chg = np.sqrt(
+            8 * self.n_0 * C.K_B * self.T * C.EPS_R_WATER * C.EPS_0
+        ) * np.sinh(C.BETA * C.Z * C.E_0 * potential / 2)
 
         sweep_df = pd.DataFrame({"phi0": potential, "capacity": cap, "charge": chg})
         sweep_df.index.name = self.name + " (Analytic)"
@@ -314,7 +316,9 @@ class Borukhov(DoubleLayerModel):
         """
         y_0 = C.BETA * C.Z * C.E_0 * potential  # dimensionless potential
         chg = (
-            np.sqrt(4 * C.K_B * C.T * C.EPS_0 * C.EPS_R_WATER * self.n_0 / self.chi_0)
+            np.sqrt(
+                4 * C.K_B * self.T * C.EPS_0 * C.EPS_R_WATER * self.n_0 / self.chi_0
+            )
             * np.sqrt(np.log(self.chi_0 * np.cosh(y_0) - self.chi_0 + 1))
             * y_0
             / np.abs(y_0)
@@ -358,16 +362,20 @@ class LangevinPoissonBoltzmann(DoubleLayerModel):
         self,
         ion_concentration_molar: float,
         x2: float,
+        delta: float = 0,
+        temp: float = C.T,
         eps_r_opt=C.N_WATER**2,
     ) -> None:
-        super().__init__(ion_concentration_molar)
+        super().__init__(ion_concentration_molar, temp=temp)
         self.n_max = C.C_WATER_BULK * 1e3 * C.N_A
         self.x2 = x2
+        self.delta = delta
+
         self.kappa_debye = np.sqrt(
             2
             * self.n_max
             * (C.Z * C.E_0) ** 2
-            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * C.T)
+            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * self.T)
         )
 
         self.eps_r_opt = eps_r_opt
@@ -395,7 +403,11 @@ class LangevinPoissonBoltzmann(DoubleLayerModel):
 
         numer1 = n_an - n_cat
         denom1 = 2 * self.n_max * self.eps_r_opt / C.EPS_R_WATER
-        denom2 = self.p_tilde**2 * self.n_max * L.d_langevin_x(self.p_tilde * y[1, :])
+        denom2 = (
+            self.p_tilde**2
+            * self.n_max
+            * L.d_langevin_x(self.p_tilde * (y[1, :] - self.delta))
+        )
 
         dy2 = numer1 / (denom1 + denom2)
         return np.vstack([dy1, dy2])
@@ -413,7 +425,7 @@ class LangevinPoissonBoltzmann(DoubleLayerModel):
             / 2
             * C.EPS_R_WATER
             * self.p_tilde**2
-            * L.langevin_x_over_x(self.p_tilde * sol_y[1, :])
+            * L.langevin_x_over_x(self.p_tilde * (sol_y[1, :] - self.delta))
         )
 
     def entropy(self, sol_y):
@@ -510,7 +522,7 @@ class Abrashkin(DoubleLayerModel):
             2
             * self.n_max
             * (C.Z * C.E_0) ** 2
-            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * C.T)
+            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * self.T)
         )
 
         self.chi = self.n_0 / self.n_max
@@ -632,7 +644,7 @@ class Aqueous(DoubleLayerModel):
             2
             * self.n_max
             * (C.Z * C.E_0) ** 2
-            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * C.T)
+            / (C.EPS_0 * C.EPS_R_WATER * C.K_B * self.T)
         )
 
         p_water = np.sqrt(
