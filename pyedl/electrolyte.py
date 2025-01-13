@@ -1,5 +1,5 @@
 """
-Utility functions for double-layer models
+Defining electrolytes for double-layer models.
 """
 
 from typing import List, Union
@@ -15,7 +15,16 @@ def calculate_dipmom(
 ) -> float:
     """
     Calculate the effective dipole moment of a solvent molecule based on its measured
-    permittivity, in elementary charge/Angstrom
+    permittivity, in elementary charge/Angstrom.
+
+    Parameters:
+        min_eps (float): Minimum permittivity (optical permittivity).
+        max_eps (float): Maximum permittivity (static permittivity).
+        temperature (float): Temperature in Kelvin.
+        concentration (float): Solvent concentration in mol/L.
+
+    Returns:
+        float: Effective dipole moment in e·Å.
     """
     dipmom = np.sqrt(
         3
@@ -31,13 +40,19 @@ def calculate_dipmom(
 @dataclass
 class Ion:
     """
-    Ion species dataclass
+    Represents an ion species.
+
+    Attributes:
+        name (str): Name of the ion.
+        size (float): Size of the ion relative to the smallest species (which should have size 1).
+        concentration (float): Molar concentration of the ion.
+        charge (float): Charge of the ion in units of elementary charge.
     """
 
     name: str
-    size: float  # relative to smallest species, which should have size 1
-    concentration: float  # molar
-    charge: float  # units of elementary charge
+    size: float
+    concentration: float
+    charge: float
 
     def __str__(self):
         return f"Ion: {self.name}, Size={self.size}, Concentration={self.concentration} mol/L, Charge={self.charge}e"
@@ -49,14 +64,21 @@ class Ion:
 @dataclass
 class Solvent:
     """
-    Solvent species dataclass
+    Represents a solvent species.
+
+    Attributes:
+        name (str): Name of the solvent.
+        size (float): Size of the solvent relative to the smallest species (which should have size 1).
+        concentration (float): Molar concentration of the solvent.
+        min_eps (float): Minimum permittivity (optical permittivity) relative to vacuum permittivity.
+        dipole_moment (float): Dipole moment of the solvent in e·Å.
     """
 
     name: str
-    size: float  # relative to smallest species, which should have size 1
-    concentration: float  # molar
-    min_eps: float  # relative to vacuum permittivity
-    dipole_moment: float  # e·A
+    size: float
+    concentration: float
+    min_eps: float
+    dipole_moment: float
 
     def __str__(self):
         return f"{self.name}: Size={self.size}, Concentration={self.concentration} mol/L, Optical Eps={self.min_eps}·eps0, Dipole Moment={self.dipole_moment} e·Å"
@@ -68,7 +90,14 @@ class Solvent:
 @dataclass
 class Water(Solvent):
     """
-    Default water parameters
+    Represents water with default parameters.
+
+    Attributes:
+        name (str): Name of the solvent, default is 'H2O'.
+        size (float): Size of the water molecule, default is 1.0.
+        concentration (float): Molar concentration of water, default is defined in defaults.
+        min_eps (float): Minimum permittivity (optical permittivity) relative to vacuum permittivity, default is defined in defaults.
+        dipole_moment (float): Dipole moment of water, calculated during initialization.
     """
 
     name: str = "H2O"
@@ -92,7 +121,11 @@ Species = Union[Ion, Solvent]
 
 class LatticeElectrolyte:
     """
-    Class for specifying the electrolyte species using the lattice gas description
+    Specifies the electrolyte species using the lattice gas description.
+
+    Attributes:
+        species (List[Species]): List of species (ions and solvents) in the electrolyte.
+        n_site (float): Lattice site density.
     """
 
     def __init__(self, species: List[Species]):
@@ -105,7 +138,7 @@ class LatticeElectrolyte:
     def _account_for_decrement(self) -> None:
         """
         Update solvent bulk concentrations to account for the reduction in free solvent
-        concentration due to space occupied by (solvated) ions
+        concentration due to space occupied by (solvated) ions.
         """
         decrement = 1 - np.sum(self.ion_n_b * self.ion_sizes) / np.sum(
             self.sol_n_b * self.sol_sizes
@@ -113,11 +146,18 @@ class LatticeElectrolyte:
 
         for spec in self.species:
             if isinstance(spec, Solvent):
-                spec.concentration = spec.concentration * decrement
+                spec.concentration *= decrement
 
     def get_properties(self, species_type: type, property_name: str) -> np.ndarray:
         """
-        Get properties as numpy array for a certain type of species
+        Get properties as a numpy array for a certain type of species.
+
+        Parameters:
+            species_type (type): The class type (Ion or Solvent).
+            property_name (str): The name of the property to retrieve.
+
+        Returns:
+            np.ndarray: Array of property values.
         """
         return np.array(
             [
@@ -127,21 +167,38 @@ class LatticeElectrolyte:
             ]
         )
 
+    def ohp(self, surf_pot: float):
+        """
+        Get the location of the outer Helmholtz plane based on the surface potential.
+
+        Parameters:
+            surf_pot (float): Surface potential.
+
+        Returns:
+            float: Distance to the outer Helmholtz plane.
+        """
+        counterions = self.ion_q * surf_pot <= 0
+        ohp = 1 / 2 * (self.ion_sizes[counterions] / self.n_site) ** (1 / 3)
+        return min(ohp)
+
     @property
-    def ion_concentrations(self):
+    def ion_concentrations(self) -> np.ndarray:
+        """Ion concentrations in mol/L."""
         return self.get_properties(Ion, "concentration")
 
     @property
-    def ion_sizes(self):
+    def ion_sizes(self) -> np.ndarray:
+        """Sizes of ions relative to the smallest species."""
         return self.get_properties(Ion, "size")
 
     @property
-    def ion_q(self):
+    def ion_q(self) -> np.ndarray:
+        """Ion charges in units of elementary charge."""
         return self.get_properties(Ion, "charge")
 
     @property
-    def ion_n_b(self):
-        """Bulk number density"""
+    def ion_n_b(self) -> np.ndarray:
+        """Bulk number density of ions."""
         return (
             self.get_properties(Ion, "concentration")
             * 1e3
@@ -150,25 +207,28 @@ class LatticeElectrolyte:
         )
 
     @property
-    def ion_f_b(self):
-        """Bulk occupied volume fraction"""
+    def ion_f_b(self) -> np.ndarray:
+        """Bulk occupied volume fraction of ions."""
         return self.ion_sizes * self.ion_n_b / self.n_site
 
     @property
-    def sol_concentrations(self):
+    def sol_concentrations(self) -> np.ndarray:
+        """Solvent concentrations in mol/L."""
         return self.get_properties(Solvent, "concentration")
 
     @property
-    def sol_sizes(self):
+    def sol_sizes(self) -> np.ndarray:
+        """Sizes of solvents relative to the smallest species."""
         return self.get_properties(Solvent, "size")
 
     @property
-    def sol_p(self):
+    def sol_p(self) -> np.ndarray:
+        """Dipole moments of solvents in e·Å."""
         return self.get_properties(Solvent, "dipole_moment")
 
     @property
-    def sol_n_b(self):
-        """Bulk number density"""
+    def sol_n_b(self) -> np.ndarray:
+        """Bulk number density of solvents."""
         return (
             self.get_properties(Solvent, "concentration")
             * 1e3
@@ -177,13 +237,13 @@ class LatticeElectrolyte:
         )
 
     @property
-    def sol_f_b(self):
-        """Bulk occupied volume fraction"""
+    def sol_f_b(self) -> np.ndarray:
+        """Bulk occupied volume fraction of solvents."""
         return self.sol_sizes * self.sol_n_b / self.n_site
 
     @property
-    def min_eps(self):
-        """Optical permittivity"""
+    def min_eps(self) -> float:
+        """Optical permittivity of the solvent."""
         return np.sum(self.sol_n_b * self.get_properties(Solvent, "min_eps")) / np.sum(
             self.sol_n_b
         )
