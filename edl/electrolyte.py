@@ -55,13 +55,14 @@ class Solvent:
     name: str
     size: float  # relative to smallest species, which should have size 1
     concentration: float  # molar
+    min_eps: float  # relative to vacuum permittivity
     dipole_moment: float  # e·A
 
     def __str__(self):
-        return f"{self.name}: Size={self.size}, Concentration={self.concentration} mol/L, Dipole Moment={self.dipole_moment} e·Å"
+        return f"{self.name}: Size={self.size}, Concentration={self.concentration} mol/L, Optical Eps={self.min_eps}·eps0, Dipole Moment={self.dipole_moment} e·Å"
 
     def __repr__(self):
-        return f"Solvent(name='{self.name}', size={self.size}, concentration={self.concentration}, dipole_moment={self.dipole_moment})"
+        return f"Solvent(name='{self.name}', size={self.size}, concentration={self.concentration}, min_eps={self.min_eps}, dipole_moment={self.dipole_moment})"
 
 
 @dataclass
@@ -73,12 +74,13 @@ class Water(Solvent):
     name: str = "H2O"
     size: float = 1.0
     concentration: float = D.WATER_BULK_M
+    min_eps: float = D.WATER_REL_ELEC_EPS
     dipole_moment: float = field(init=False)
 
     def __post_init__(self):
         # Initialize or calculate the dipole moment based on the constants
         self.dipole_moment = calculate_dipmom(
-            min_eps=D.WATER_REL_ELEC_EPS,
+            min_eps=self.min_eps,
             max_eps=D.WATER_REL_EPS,
             temperature=D.DEFAULT_TEMPERATURE,
             concentration=self.concentration,
@@ -96,14 +98,17 @@ class LatticeElectrolyte:
     def __init__(self, species: List[Species]):
         self.species = species
         self._account_for_decrement()
+        self.n_site = np.sum(self.ion_sizes * self.ion_n_b) + np.sum(
+            self.sol_sizes * self.sol_n_b
+        )  # lattice site density
 
     def _account_for_decrement(self) -> None:
         """
         Update solvent bulk concentrations to account for the reduction in free solvent
         concentration due to space occupied by (solvated) ions
         """
-        decrement = 1 - np.sum(self.ion_n0 * self.ion_sizes) / np.sum(
-            self.sol_n0 * self.sol_sizes
+        decrement = 1 - np.sum(self.ion_n_b * self.ion_sizes) / np.sum(
+            self.sol_n_b * self.sol_sizes
         )
 
         for spec in self.species:
@@ -135,13 +140,19 @@ class LatticeElectrolyte:
         return self.get_properties(Ion, "charge")
 
     @property
-    def ion_n0(self):
+    def ion_n_b(self):
+        """Bulk number density"""
         return (
             self.get_properties(Ion, "concentration")
             * 1e3
             * constants.Avogadro
             * constants.angstrom**3
         )
+
+    @property
+    def ion_f_b(self):
+        """Bulk occupied volume fraction"""
+        return self.ion_sizes * self.ion_n_b / self.n_site
 
     @property
     def sol_concentrations(self):
@@ -156,12 +167,25 @@ class LatticeElectrolyte:
         return self.get_properties(Solvent, "dipole_moment")
 
     @property
-    def sol_n0(self):
+    def sol_n_b(self):
+        """Bulk number density"""
         return (
             self.get_properties(Solvent, "concentration")
             * 1e3
             * constants.Avogadro
             * constants.angstrom**3
+        )
+
+    @property
+    def sol_f_b(self):
+        """Bulk occupied volume fraction"""
+        return self.sol_sizes * self.sol_n_b / self.n_site
+
+    @property
+    def min_eps(self):
+        """Optical permittivity"""
+        return np.sum(self.sol_n_b * self.get_properties(Solvent, "min_eps")) / np.sum(
+            self.sol_n_b
         )
 
     def __str__(self):

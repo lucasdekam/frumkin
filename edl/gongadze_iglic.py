@@ -2,12 +2,17 @@
 Implementation of double-layer models
 """
 
-from typing import Dict
 import numpy as np
+from numpy import newaxis
 
 from bvpsweep import sweep_solve_bvp
 
 from . import langevin as L
+from .electrolyte import LatticeElectrolyte
+from scipy import constants
+
+
+# KAPPA = constants.elementary_charge**2 / constants.epsilon_0 / constants.angstrom
 
 
 class GongadzeIglic:
@@ -15,80 +20,83 @@ class GongadzeIglic:
     TODO: write
     """
 
-    def __init__(self, species: Dict, ohp: float, min_eps: float) -> None:
-        self.species = species
-        self.charges = np.array(
-            [s["charge"] if "charge" in s else 0 for _, s in species.items()]
-        ).reshape(-1, 1)
-        self.sizes = np.array(
-            [s["size"] if "size" in s else 1 for _, s in species.items()]
-        ).reshape(-1, 1)
-        self.fractions = np.array([s["fraction"] for _, s in species.items()]).reshape(
-            -1, 1
-        )
-        self.dipoles = np.array(
-            [s["dipole"] if "dipole" in s else 0 for _, s in species.items()]
-        ).reshape(-1, 1)
-        self.min_eps = min_eps
+    def __init__(
+        self,
+        electrolyte: LatticeElectrolyte,
+        ohp: float,
+        temperature: float = 298,
+    ) -> None:
+        self.el = electrolyte
         self.ohp = ohp
-
-        assert len(self.fractions) == len(
-            species
-        ), "Specify the occupied volume fraction ('fraction') of all species."
-        total_occupied = np.sum(self.sizes * self.fractions)
-        assert np.isclose(
-            total_occupied, 1.0
-        ), f"Fractions*sizes must add up to 1.0, now {total_occupied:.3f}."
-
-        print("Number of species: %.0f" % len(species))
-        print("Charges: %s" % str(self.charges.squeeze()))
-        print("Sizes: %s" % str(self.sizes.squeeze()))
-        print("Volume fractions: %s" % str(self.fractions.squeeze()))
-        print("Dipoles: %s" % str(self.dipoles.squeeze()))
+        kbt = constants.Boltzmann * temperature
+        self.kappa = (
+            constants.elementary_charge**2
+            / constants.epsilon_0
+            / constants.angstrom
+            / kbt
+        )
+        self.kbt_ev = kbt / constants.elementary_charge
 
     def densities(self, y: np.ndarray):
         """
-        Compute density profiles of all species (as dimensionless fraction of
-        occupied volume)
+        Compute density profiles of all species
         """
-        bf = np.exp(-self.charges * y[0, :]) * L.sinh_x_over_x(self.dipoles * y[1, :])
-        denom = np.sum(self.sizes * self.fractions * bf, axis=0)
-        profile = self.fractions * bf / denom
-        return profile
+        # Ion boltzmann factor
+        ion_bf = np.exp(-self.el.ion_q[:, newaxis] * y[0, :])
+
+        # Solvent boltzmann factor
+        sol_bf = L.sinh_x_over_x(self.el.sol_p[:, newaxis] * y[1, :])
+
+        # Denominator
+        denom = np.sum(self.el.ion_f_b[:, newaxis] * ion_bf, axis=0) + np.sum(
+            self.el.sol_f_b[:, newaxis] * sol_bf, axis=0
+        )
+
+        ion_densities = self.el.ion_n_b[:, newaxis] * ion_bf / denom
+        sol_densities = self.el.sol_n_b[:, newaxis] * sol_bf / denom
+
+        return ion_densities, sol_densities
 
     def ode_rhs(self, x, y):  # pylint: disable=unused-argument
         """
-        Function to pass to ODE solver, specifying the right-hand side of the
-        system of dimensionless 1st order ODE's that we solve.
-        x: dimensionless x-axis of length n, i.e. kappa (1/m) times x-position (m).
-        y: dimensionless potential phi and dphi/dx, size 2 x n.
+        Right hand side of the differential equation to pass to ODE solver
         """
         dy0 = y[1, :]
-        densities = self.densities(y)
 
-        f_1 = np.sum(-self.charges * densities, axis=0)
+        ion_densities, sol_densities = self.densities(y)
+        # Occupied volume fractions for shorter notation later
+        ion_f = self.el.ion_sizes[:, newaxis] * ion_densities / self.el.n_site
+        sol_f = self.el.sol_sizes[:, newaxis] * sol_densities / self.el.n_site
+
+        f_1 = np.sum(self.el.ion_q[:, newaxis] * ion_densities, axis=0)
         f_2 = np.sum(
-            -self.dipoles
-            * densities
+            self.el.sol_p[:, newaxis]
             * y[1, :]
-            * L.langevin_x(self.dipoles * y[1, :])
-            * np.sum(densities * self.charges * self.sizes, axis=0),
+            * sol_densities
+            * L.langevin_x(self.el.sol_p[:, newaxis] * y[1, :])
+            * np.sum(self.el.ion_q[:, newaxis] * ion_f, axis=0),
             axis=0,
         )
-        g_1 = self.min_eps
+        g_1 = np.sum(
+            self.el.sol_p[:, newaxis] ** 2
+            * sol_densities
+            * L.d_langevin_x(self.el.sol_p[:, newaxis] * y[1, :]),
+            axis=0,
+        )
         g_2 = np.sum(
-            self.dipoles**2 * densities * L.d_langevin_x(self.dipoles * y[1, :]), axis=0
-        )
-        g_3 = np.sum(
-            self.dipoles**2
-            * densities
-            * L.langevin_x(self.dipoles * y[1, :]) ** 2
-            * np.sum(densities[self.charges.squeeze() > 0], axis=0),
+            self.el.sol_p[:, newaxis] ** 2
+            * sol_densities
+            * L.langevin_x(self.el.sol_p[:, newaxis] * y[1, :]) ** 2
+            * (1 - np.sum(sol_f, axis=0)),
             axis=0,
         )
-        # (1 - np.sum(densities[self.dipoles.squeeze() > 0], axis=0))
 
-        dy1 = (f_1 + f_2) / (g_1 + g_2 + g_3)
+        dy1 = (
+            -self.kappa
+            * (f_1 + f_2)
+            / (self.el.min_eps + self.kappa * g_1 + self.kappa * g_2)
+        )
+        # print(self.kappa * f_1, self.kappa * f_2, self.kappa * g_1, self.kappa * g_2)
         return np.vstack([dy0, dy1])
 
     def boundary_condition(self, ya, yb, y0):
@@ -102,16 +110,15 @@ class GongadzeIglic:
             ]
         )
 
-    def permittivity(self, sol_y: np.ndarray):
+    def permittivity(self, y: np.ndarray):
         """
-        Compute the permittivity using the electric field
-        n_sol: solvent number density
-        y_1: dimensionless electric field
+        Compute the permittivity
         """
-        return self.min_eps + np.sum(
-            self.dipoles**2
-            * self.densities(sol_y)
-            * L.langevin_x_over_x(self.dipoles * sol_y[1, :]),
+        _, sol_densities = self.densities(y)
+        return self.el.min_eps + self.kappa * np.sum(
+            self.el.sol_p**2
+            * sol_densities
+            * L.langevin_x_over_x(self.el.sol_p[:, newaxis] * y[1, :]),
             axis=0,
         )
 
@@ -128,9 +135,15 @@ class GongadzeIglic:
             bc=self.boundary_condition,
             x0=x_mesh,
             y0=y0,
-            sweep_par=potential,
+            sweep_par=potential / self.kbt_ev,
             sweep_par_start=0.0,
             tol=tol,
         )
 
-        return -self.permittivity(y[:, :, 0]) * y[1, :, 0]
+        return (
+            -constants.epsilon_0
+            * self.permittivity(y[:, :, 0])
+            * y[1, :, 0]
+            * self.kbt_ev
+            / constants.angstrom
+        )

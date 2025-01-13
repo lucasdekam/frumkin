@@ -16,4 +16,3 @@ WATER_REL_EPS = 78.4  # water bulk permittivity @25C, referenced to eps_0
 WATER_REL_ELEC_EPS = 1.33**2  # water optical/electronic permittivity @20C
 # based on refractive index (https://en.wikipedia.org/wiki/Water)
 DEFAULT_TEMPERATURE = 298  # K
-KAPPA = constants.elementary_charge**2 / constants.epsilon_0 / constants.angstrom
