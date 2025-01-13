@@ -11,6 +11,7 @@ from bvpsweep import sweep_solve_bvp
 
 from . import langevin as L
 from .electrolyte import LatticeElectrolyte
+from .results import VoltammetryResult
 
 
 class GongadzeIglic:
@@ -168,7 +169,7 @@ class GongadzeIglic:
         Parameters:
             y (np.ndarray): A 2D array where the first row represents the dimensionless
                             potential and the second row represents the dimensionless derivative
-                            of the potential. The columns represent different points in space.
+                            of the potential.
 
         Returns:
             np.ndarray: The computed relative permittivity at each point in space.
@@ -207,10 +208,20 @@ class GongadzeIglic:
             tol=tol,
         )
 
-        return (
-            -constants.epsilon_0
-            * self.permittivity(y[:, :, 0])
-            * y[1, :, 0]
-            * self.kbt_ev
-            / constants.angstrom
+        # Compute the surface electric field
+        electric_field = y[1, :, 0] * self.kbt_ev / constants.angstrom
+
+        # Compute the surface charge
+        surface_charge = (
+            -constants.epsilon_0 * self.permittivity(y[:, :, 0]) * electric_field
+        )
+
+        # Compute capacitance
+        capacitance = np.gradient(surface_charge, edge_order=2) / np.gradient(potential)
+
+        return VoltammetryResult(
+            potential=potential,
+            electric_field=electric_field,
+            surface_charge=surface_charge,
+            capacitance=capacitance,
         )
