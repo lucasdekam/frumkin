@@ -200,16 +200,18 @@ class LatticeElectrolyte:
     def ion_n_b(self) -> np.ndarray:
         """Bulk number density of ions."""
         return (
-            self.get_properties(Ion, "concentration")
-            * 1e3
-            * constants.Avogadro
-            * constants.angstrom**3
+            self.ion_concentrations * 1e3 * constants.Avogadro * constants.angstrom**3
         )
 
     @property
     def ion_f_b(self) -> np.ndarray:
         """Bulk occupied volume fraction of ions."""
         return self.ion_sizes * self.ion_n_b / self.n_site
+
+    @property
+    def ion_names(self) -> list:
+        """Ion names"""
+        return [s.name for s in self.species if isinstance(s, Ion)]
 
     @property
     def sol_concentrations(self) -> np.ndarray:
@@ -230,16 +232,18 @@ class LatticeElectrolyte:
     def sol_n_b(self) -> np.ndarray:
         """Bulk number density of solvents."""
         return (
-            self.get_properties(Solvent, "concentration")
-            * 1e3
-            * constants.Avogadro
-            * constants.angstrom**3
+            self.sol_concentrations * 1e3 * constants.Avogadro * constants.angstrom**3
         )
 
     @property
     def sol_f_b(self) -> np.ndarray:
         """Bulk occupied volume fraction of solvents."""
         return self.sol_sizes * self.sol_n_b / self.n_site
+
+    @property
+    def sol_names(self) -> list:
+        """Solvent names"""
+        return [s.name for s in self.species if isinstance(s, Solvent)]
 
     @property
     def min_eps(self) -> float:

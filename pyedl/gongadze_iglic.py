@@ -2,7 +2,7 @@
 Modelling the double layer using the Gongadze-Iglic approach.
 """
 
-from typing import Optional
+from typing import Optional, Dict
 import numpy as np
 from numpy import newaxis
 from scipy import constants
@@ -11,7 +11,7 @@ from bvpsweep import sweep_solve_bvp
 
 from . import langevin as L
 from .electrolyte import LatticeElectrolyte
-from .results import VoltammetryResult
+from .results import VoltammetryResult, SinglePointResult
 
 
 class GongadzeIglic:
@@ -69,8 +69,8 @@ class GongadzeIglic:
 
         Parameters:
             y (np.ndarray): A 2D array where the first row represents the dimensionless
-                           electric potential and the second row represents the dimensionless
-                           derivative of the potential (-electric field).
+            electric potential and the second row represents the dimensionless
+            derivative of the potential (-electric field).
 
         Returns:
             tuple: A tuple containing two ndarrays:
@@ -95,7 +95,7 @@ class GongadzeIglic:
         Parameters:
             x (np.ndarray): Independent variable (not used in the computation).
             y (np.ndarray): Dependent variable, where y[0, :] represents the function values
-                            and y[1, :] represents the derivatives.
+            and y[1, :] represents the derivatives.
 
         Returns:
             np.ndarray: A 2D array where the first row contains the derivatives of y[0, :]
@@ -168,15 +168,15 @@ class GongadzeIglic:
 
         Parameters:
             y (np.ndarray): A 2D array where the first row represents the dimensionless
-                            potential and the second row represents the dimensionless derivative
-                            of the potential.
+            potential and the second row represents the dimensionless derivative
+            of the potential.
 
         Returns:
             np.ndarray: The computed relative permittivity at each point in space.
         """
         _, sol_densities = self.densities(y)
         return self.el.min_eps + self.kappa * np.sum(
-            self.el.sol_p**2
+            self.el.sol_p[:, newaxis] ** 2
             * sol_densities
             * L.langevin_x_over_x(self.el.sol_p[:, newaxis] * y[1, :]),
             axis=0,
@@ -194,7 +194,8 @@ class GongadzeIglic:
             tol (float, optional): Tolerance for the solver. Default is 1e-3.
 
         Returns:
-            np.ndarray: The computed current density array.
+            VoltammetryResult: results container with attributes potential, electric_field,
+            surface_charge, and capacitance.
         """
         y0 = np.zeros((2, len(x_mesh)))
 
@@ -209,19 +210,104 @@ class GongadzeIglic:
         )
 
         # Compute the surface electric field
-        electric_field = y[1, :, 0] * self.kbt_ev / constants.angstrom
+        electric_field = y[1, :, 0] * self.kbt_ev
 
         # Compute the surface charge
         surface_charge = (
-            -constants.epsilon_0 * self.permittivity(y[:, :, 0]) * electric_field
+            -constants.epsilon_0
+            * self.permittivity(y[:, :, 0])
+            * electric_field
+            / constants.angstrom
+            * 100
         )
 
         # Compute capacitance
         capacitance = np.gradient(surface_charge, edge_order=2) / np.gradient(potential)
 
         return VoltammetryResult(
-            potential=potential,
-            electric_field=electric_field,
-            surface_charge=surface_charge,
-            capacitance=capacitance,
+            potential=potential,  # V
+            electric_field=electric_field,  # V/A
+            surface_charge=surface_charge,  # (uC/cm2)
+            capacitance=capacitance,  # (uF/cm2)
+        )
+
+    def single_point(
+        self, x_mesh: np.ndarray, potential: float, tol: float = 1e-3
+    ) -> np.ndarray:
+        """
+        Compute spatial information about the double layer at a certain potential.
+
+        Parameters:
+            x_mesh (np.ndarray): Spatial mesh points.
+            potential (np.ndarray): Applied potential at the electrode.
+            tol (float, optional): Tolerance for the solver. Default is 1e-3.
+
+        Returns:
+            np.ndarray: The computed current density array.
+        """
+
+        def _species_concentrations(y, x_stern) -> Dict:
+            n_ion, n_sol = self.densities(y)
+
+            species_concentrations = {}
+
+            # Store ion densities
+            for i, name in enumerate(self.el.ion_names):
+                species_concentrations[name] = np.concat(
+                    [
+                        np.zeros(x_stern.shape) * np.nan,
+                        n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                    ]
+                )
+
+            # Store solvent densities
+            for i, name in enumerate(self.el.sol_names):
+                species_concentrations[name] = np.concat(
+                    [
+                        np.zeros(x_stern.shape) * np.nan,
+                        n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                    ]
+                )
+
+            return species_concentrations
+
+        y0 = np.zeros((2, len(x_mesh)))
+        step = potential / abs(potential) * 0.01 / self.kbt_ev
+        y = sweep_solve_bvp(
+            fun=self.ode_rhs,
+            bc=self.boundary_condition,
+            x0=x_mesh,
+            y0=y0,
+            sweep_par=np.arange(
+                start=0,
+                stop=potential / self.kbt_ev + step,
+                step=step,
+            ),
+            sweep_par_start=0,
+            tol=tol,
+        )[:, -1, :]
+
+        # Compute quantities in the diffuse layer
+        diffuse_potential = y[0, :] * self.kbt_ev
+        diffuse_efield = -y[1, :] * self.kbt_ev
+        diffuse_permittivity = self.permittivity(y)
+
+        # Compute quantities in the Stern layer
+        ohp = self.ohp if self.ohp else self.el.ohp(potential)
+        stern_x = np.linspace(0, ohp, 10)
+        stern_permittivity = np.ones(stern_x.shape) * (
+            self.eps_stern if self.eps_stern else diffuse_permittivity[0]
+        )
+        eps_ratio = diffuse_permittivity[0] / stern_permittivity
+        stern_potential = (
+            diffuse_potential[0] + diffuse_efield[0] * (ohp - stern_x) * eps_ratio
+        )
+        stern_efield = np.ones(stern_x.shape) * (potential - diffuse_potential[0]) / ohp
+
+        return SinglePointResult(
+            x=np.concat([stern_x, x_mesh + ohp]),
+            potential=np.concat([stern_potential, diffuse_potential]),
+            electric_field=np.concat([stern_efield, diffuse_efield]),
+            permittivity=np.concat([stern_permittivity, diffuse_permittivity]),
+            concentrations=_species_concentrations(y, stern_x),
         )
