@@ -2,8 +2,6 @@
 Constants not included in scipy.constants
 """
 
-from scipy import constants
-
 WATER_DENSITY = (
     0.99704702  # water density @25C, g/mL (https://en.wikipedia.org/wiki/Water)
 )
