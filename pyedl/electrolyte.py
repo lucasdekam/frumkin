@@ -17,14 +17,21 @@ def calculate_dipmom(
     Calculate the effective dipole moment of a solvent molecule based on its measured
     permittivity, in elementary charge/angstrom.
 
-    Parameters:
-        min_eps (float): Minimum permittivity (optical permittivity).
-        max_eps (float): Maximum permittivity (static permittivity).
-        temperature (float): Temperature in Kelvin.
-        concentration (float): Solvent concentration in mol/L.
+    Parameters
+    ----------
+    min_eps : float
+        Minimum permittivity (optical permittivity).
+    max_eps : float
+        Maximum permittivity (static permittivity).
+    temperature : float
+        Temperature in Kelvin.
+    concentration : float
+        Solvent concentration in mol/L.
 
-    Returns:
-        float: Effective dipole moment in e·Å.
+    Returns
+    -------
+    float
+        Effective dipole moment in e·Å.
     """
     dipmom = np.sqrt(
         3
@@ -42,11 +49,17 @@ class Ion:
     """
     Represents an ion species.
 
-    Attributes:
-        name (str): Name of the ion.
-        size (float): Size of the ion relative to the smallest species (which should have size 1).
-        concentration (float): Molar concentration of the ion.
-        charge (float): Charge of the ion in units of elementary charge.
+    Attributes
+    ----------
+    name : str
+        Name of the ion.
+    size : float
+        Size of the ion relative to the lattice sites. Usually, the lattice sites
+        have the size of the smallest species (which should then have size 1).
+    concentration : float
+        Molar concentration of the ion.
+    charge : float
+        Charge of the ion in units of elementary charge.
     """
 
     name: str
@@ -66,12 +79,19 @@ class Solvent:
     """
     Represents a solvent species.
 
-    Attributes:
-        name (str): Name of the solvent.
-        size (float): Size of the solvent relative to the smallest species (which should have size 1).
-        concentration (float): Molar concentration of the solvent.
-        min_eps (float): Minimum permittivity (optical permittivity) relative to vacuum permittivity.
-        dipole_moment (float): Dipole moment of the solvent in e·Å.
+    Attributes
+    ----------
+    name : str
+        Name of the solvent.
+    size : float
+        Size of the solvent relative to the lattice sites. Usually, the lattice sites
+        have the size of the smallest species (which should then have size 1).
+    concentration : float
+        Molar concentration of the solvent.
+    min_eps : float
+        Minimum permittivity (optical permittivity) relative to vacuum permittivity.
+    dipole_moment : float
+        Dipole moment of the solvent in e·Å.
     """
 
     name: str
@@ -92,12 +112,18 @@ class Water(Solvent):
     """
     Represents water with default parameters.
 
-    Attributes:
-        name (str): Name of the solvent, default is 'H2O'.
-        size (float): Size of the water molecule, default is 1.0.
-        concentration (float): Molar concentration of water, default is defined in defaults.
-        min_eps (float): Minimum permittivity (optical permittivity) relative to vacuum permittivity, default is defined in defaults.
-        dipole_moment (float): Dipole moment of water, calculated during initialization.
+    Attributes
+    ----------
+    name : str
+        Name of the solvent, default is 'H2O'.
+    size : float
+        Size of the water molecule, default is 1.0.
+    concentration : float
+        Molar concentration of water, default is defined in defaults.
+    min_eps : float
+        Minimum permittivity (optical permittivity) relative to vacuum permittivity, default is defined in defaults.
+    dipole_moment : float
+        Dipole moment of water, calculated during initialization.
     """
 
     name: str = r"H$_2$O"
@@ -123,9 +149,12 @@ class LatticeElectrolyte:
     """
     Specifies the electrolyte species using the lattice gas description.
 
-    Attributes:
-        species (List[Species]): List of species (ions and solvents) in the electrolyte.
-        n_site (float): Lattice site density.
+    Attributes
+    ----------
+    species : List[Species]
+        List of species (ions and solvents) in the electrolyte.
+    n_site : float
+        Lattice site density.
     """
 
     def __init__(self, species: List[Species]):
@@ -149,12 +178,17 @@ class LatticeElectrolyte:
         """
         Get properties as a numpy array for a certain type of species.
 
-        Parameters:
-            species_type (type): The class type (Ion or Solvent).
-            property_name (str): The name of the property to retrieve.
+        Parameters
+        ----------
+        species_type : type
+            The class type (Ion or Solvent).
+        property_name : str
+            The name of the property to retrieve.
 
-        Returns:
-            np.ndarray: Array of property values.
+        Returns
+        -------
+        np.ndarray
+            Array of property values.
         """
         return np.array(
             [
@@ -164,15 +198,21 @@ class LatticeElectrolyte:
             ]
         )
 
-    def ohp(self, surf_pot: float):
+    def ohp(self, surf_pot: float) -> float:
         """
-        Get the location of the outer Helmholtz plane based on the surface potential.
+        Get the location of the outer Helmholtz plane based on the electric potential
+        at the surface. Negative surface potentials attract positive counterions, so
+        the ohp depends on the size of the smallest positive ion, and vice versa.
 
-        Parameters:
-            surf_pot (float): Surface potential.
+        Parameters
+        ----------
+        surf_pot : float
+            Surface potential (any unit, only the sign matters).
 
-        Returns:
-            float: Distance to the outer Helmholtz plane.
+        Returns
+        -------
+        float
+            Distance to the outer Helmholtz plane.
         """
         counterions = self.ion_q * surf_pot <= 0
         ohp = 1 / 2 * (self.ion_sizes[counterions] / self.n_site) ** (1 / 3)

@@ -12,14 +12,16 @@ from matplotlib.figure import Figure
 @dataclass
 class VoltammetryResult:
     """
-    Class containing results from a Voltammetry experiment
+    Class containing results from a Voltammetry experiment.
 
-    Attributes:
-    potential: Potential values in V at which the results are calculated
-    electric_field: Electric field values at the Hemholtz plane in V/A
-    surface_charge: Surface charge in uC/cm^2
-    capacitance: Capacitance in uF/cm^2
-    permittivity: Relative permittivity at the Helmholtz plane
+    Attributes
+    ----------
+    potential : np.ndarray
+        Potential values in V at which the results are calculated.
+    surface_charge : np.ndarray
+        Surface charge in uC/cm^2.
+    capacitance : np.ndarray
+        Capacitance in uF/cm^2.
     """
 
     potential: np.ndarray
@@ -32,10 +34,19 @@ class VoltammetryResult:
         """
         Plot the surface charge and capacitance as a function of potential.
 
-        Parameters:
-        fig (Optional[Figure]): Matplotlib figure to plot on. If None, a new figure will be created.
-        legend (bool): Whether to include a legend in the plot.
-        kwargs: Additional keyword arguments to pass to the plot function.
+        Parameters
+        ----------
+        fig : Optional[Figure], optional
+            Matplotlib figure to plot on. If None, a new figure will be created.
+        legend : Optional[int], optional
+            Whether to include a legend in the plot.
+        kwargs : dict
+            Additional keyword arguments to pass to the plot function.
+
+        Returns
+        -------
+        Figure
+            Matplotlib figure containing the plots.
         """
         if fig is None:
             fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4))
@@ -61,7 +72,20 @@ class VoltammetryResult:
 @dataclass
 class SinglePointResult:
     """
-    Class containing profiles from a single point experiment
+    Class containing profiles from a single point experiment.
+
+    Attributes
+    ----------
+    x : np.ndarray
+        x values in Angstroms.
+    potential : np.ndarray
+        Potential values in V.
+    electric_field : np.ndarray
+        Electric field values in V/Å.
+    permittivity : np.ndarray
+        Relative permittivity.
+    concentrations : Dict
+        Dictionary of concentrations.
     """
 
     x: np.ndarray
@@ -78,13 +102,23 @@ class SinglePointResult:
         **kwargs,
     ) -> Figure:
         """
-        Plot the surface charge and capacitance as a function of potential.
+        Plot the profiles as a function of x.
 
-        Parameters:
-        fig (Optional[Figure]): Matplotlib figure to plot on. If None, a new figure will be created.
-        x_max (float): Maximum x value to plot.
-        legend (bool): Whether to include a legend in the plot.
-        kwargs: Additional keyword arguments to pass to the plot function.
+        Parameters
+        ----------
+        fig : Optional[Figure], optional
+            Matplotlib figure to plot on. If None, a new figure will be created.
+        x_max : float, optional
+            Maximum x value to plot.
+        legend : Optional[int], optional
+            Whether to include a legend in the plot.
+        kwargs : dict
+            Additional keyword arguments to pass to the plot function.
+
+        Returns
+        -------
+        Figure
+            Matplotlib figure containing the plots.
         """
         quantities = {
             r"$\phi$ (V)": self.potential,

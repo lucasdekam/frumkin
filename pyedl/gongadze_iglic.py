@@ -19,30 +19,29 @@ class GongadzeIglic:
     """
     A class to model the electric double layer with the approach of Gongadze and Iglic.
 
-    Parameters:
-        electrolyte (LatticeElectrolyte): The electrolyte model.
-        temperature (float, optional): Temperature in Kelvin. Default is 298 K.
-        ohp (float, optional): Outer Helmholtz plane distance.
-        eps_stern (float, optional): Stern layer permittivity.
+    Parameters
+    ----------
+    electrolyte : LatticeElectrolyte
+        The electrolyte model.
+    temperature : float, optional
+        Temperature in Kelvin. Default is 298 K.
+    ohp : float, optional
+        Outer Helmholtz plane distance.
+    eps_stern : float, optional
+        Stern layer permittivity.
 
-    Attributes:
-        el (LatticeElectrolyte): The electrolyte model.
-        ohp (float, optional): Outer Helmholtz plane distance.
-        eps_stern (float, optional): Stern layer permittivity.
-        kappa (float): Parameter resulting from the nondimensionalization procedure.
-        kbt_ev (float): Thermal energy in electronvolts.
-
-    Methods:
-        densities(y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-            Compute the density profiles of all species.
-        ode_rhs(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-            Compute the right-hand side of the differential equation for the ODE solver.
-        boundary_condition(ya: np.ndarray, yb: np.ndarray, y0: float) -> np.ndarray:
-            Apply the Stern layer boundary condition.
-        permittivity(y: np.ndarray) -> np.ndarray:
-            Compute the relative permittivity.
-        voltammetry(x_mesh: np.ndarray, potential: np.ndarray, tol: float = 1e-3) -> np.ndarray:
-            Perform a numerical solution to a potential sweep for the defined double-layer model.
+    Attributes
+    ----------
+    el : LatticeElectrolyte
+        The electrolyte parameters.
+    ohp : float, optional
+        Outer Helmholtz plane distance.
+    eps_stern : float, optional
+        Stern layer permittivity.
+    kappa : float
+        Parameter resulting from the nondimensionalization procedure.
+    kbt_ev : float
+        Thermal energy in electronvolts.
     """
 
     def __init__(
@@ -68,15 +67,19 @@ class GongadzeIglic:
         """
         Calculate the ion and solvent densities based on the provided potential array.
 
-        Parameters:
-            y (np.ndarray): A 2D array where the first row represents the dimensionless
+        Parameters
+        ----------
+        y : np.ndarray
+            A 2D array where the first row represents the dimensionless
             electric potential and the second row represents the dimensionless
             derivative of the potential (-electric field).
 
-        Returns:
-            tuple: A tuple containing two ndarrays:
-                - ion_densities (np.ndarray): The calculated ion densities.
-                - sol_densities (np.ndarray): The calculated solvent densities.
+        Returns
+        -------
+        tuple
+            A tuple containing two ndarrays:
+            - ion_densities (np.ndarray): The calculated ion densities.
+            - sol_densities (np.ndarray): The calculated solvent densities.
         """
         ion_boltzmann_fac = np.exp(-self.el.ion_q[:, newaxis] * y[0, :])
         sol_boltzmann_fac = L.sinh_x_over_x(self.el.sol_p[:, newaxis] * y[1, :])
@@ -93,14 +96,19 @@ class GongadzeIglic:
         """
         Compute the right-hand side of the differential equation for the ODE solver.
 
-        Parameters:
-            x (np.ndarray): Independent variable (not used in the computation).
-            y (np.ndarray): Dependent variable, where y[0, :] represents the function values
+        Parameters
+        ----------
+        x : np.ndarray
+            Independent variable (not used in the computation).
+        y : np.ndarray
+            Dependent variable, where y[0, :] represents the function values
             and y[1, :] represents the derivatives.
 
-        Returns:
-            np.ndarray: A 2D array where the first row contains the derivatives of y[0, :]
-                        and the second row contains the derivative of y[1, :].
+        Returns
+        -------
+        np.ndarray
+            A 2D array where the first row contains the derivatives of y[0, :]
+            and the second row contains the derivative of y[1, :].
         """
         dy0 = y[1, :]
         ion_densities, sol_densities = self.densities(y)
@@ -142,13 +150,19 @@ class GongadzeIglic:
         """
         Apply the Stern layer boundary condition.
 
-        Parameters:
-            ya (np.ndarray): The solution vector at the left of the interval (outer Helmholtz plane).
-            yb (np.ndarray): The solution vector at the right of the interval (electrolyte bulk).
-            y0 (float): The value of the dimensionless potential at the electrode.
+        Parameters
+        ----------
+        ya : np.ndarray
+            The solution vector at the left of the interval (outer Helmholtz plane).
+        yb : np.ndarray
+            The solution vector at the right of the interval (electrolyte bulk).
+        y0 : float
+            The value of the dimensionless potential at the electrode.
 
-        Returns:
-            np.ndarray: An array containing the boundary condition residuals.
+        Returns
+        -------
+        np.ndarray
+            An array containing the boundary condition residuals.
         """
         ohp = self.ohp if self.ohp else self.el.ohp(y0)
         eps_ratio = (
@@ -167,13 +181,18 @@ class GongadzeIglic:
         """
         Compute the relative permittivity according to the Gongadze-Iglic model.
 
-        Parameters:
-            y (np.ndarray): A 2D array where the first row represents the dimensionless
+        Parameters
+        ----------
+        y : np.ndarray
+            A 2D array where the first row represents the dimensionless
             potential and the second row represents the dimensionless derivative
-            of the potential.
+            of the potential. The columns represent the spatial points or, for
+            example, values at different potentials.
 
-        Returns:
-            np.ndarray: The computed relative permittivity at each point in space.
+        Returns
+        -------
+        np.ndarray
+            The computed relative permittivity for each column of y.
         """
         _, sol_densities = self.densities(y)
         return self.el.min_eps + self.kappa * np.sum(
@@ -192,13 +211,19 @@ class GongadzeIglic:
         """
         Perform a numerical solution to a potential sweep for the defined double-layer model.
 
-        Parameters:
-            x_mesh (np.ndarray): Spatial mesh points.
-            potential (np.ndarray): Applied potential array.
-            tol (float, optional): Tolerance for the solver. Default is 1e-3.
+        Parameters
+        ----------
+        potential : np.ndarray
+            Applied potential array.
+        x_mesh : np.ndarray, optional
+            Spatial mesh points.
+        tol : float, optional
+            Tolerance for the solver. Default is 1e-3.
 
-        Returns:
-            VoltammetryResult: results container with attributes potential, electric_field,
+        Returns
+        -------
+        VoltammetryResult
+            Results container with attributes potential, electric_field,
             surface_charge, and capacitance.
         """
         if x_mesh is None:
@@ -247,13 +272,19 @@ class GongadzeIglic:
         """
         Compute spatial information about the double layer at a certain potential.
 
-        Parameters:
-            x_mesh (np.ndarray): Spatial mesh points.
-            potential (np.ndarray): Applied potential at the electrode.
-            tol (float, optional): Tolerance for the solver. Default is 1e-3.
+        Parameters
+        ----------
+        potential : float
+            Applied potential at the electrode.
+        x_mesh : np.ndarray, optional
+            Spatial mesh points.
+        tol : float, optional
+            Tolerance for the solver. Default is 1e-3.
 
-        Returns:
-            np.ndarray: The computed current density array.
+        Returns
+        -------
+        SinglePointResult
+            Results container with potential, electric field, permittivity, and concentration profiles.
         """
 
         def _species_concentrations(y, x_stern) -> Dict:
