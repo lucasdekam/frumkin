@@ -7,7 +7,7 @@ import numpy as np
 from numpy import newaxis
 from scipy import constants
 
-from bvpsweep import sweep_solve_bvp
+from .solve.bvpsweep import sweep_solve_bvp
 
 from .tools import langevin as L
 from .tools.mesh import create_mesh
