@@ -9,7 +9,8 @@ from scipy import constants
 
 from bvpsweep import sweep_solve_bvp
 
-from . import langevin as L
+from .tools import langevin as L
+from .tools.mesh import create_mesh
 from .electrolyte import LatticeElectrolyte
 from .results import VoltammetryResult, SinglePointResult
 
@@ -183,7 +184,10 @@ class GongadzeIglic:
         )
 
     def voltammetry(
-        self, x_mesh: np.ndarray, potential: np.ndarray, tol: float = 1e-3
+        self,
+        potential: np.ndarray,
+        x_mesh: Optional[np.ndarray] = None,
+        tol: float = 1e-3,
     ) -> np.ndarray:
         """
         Perform a numerical solution to a potential sweep for the defined double-layer model.
@@ -197,6 +201,9 @@ class GongadzeIglic:
             VoltammetryResult: results container with attributes potential, electric_field,
             surface_charge, and capacitance.
         """
+        if x_mesh is None:
+            x_mesh = create_mesh()
+
         y0 = np.zeros((2, len(x_mesh)))
 
         y = sweep_solve_bvp(
@@ -211,11 +218,12 @@ class GongadzeIglic:
 
         # Compute the surface electric field
         electric_field = y[1, :, 0] * self.kbt_ev
+        permittivity = self.permittivity(y[:, :, 0])
 
         # Compute the surface charge
         surface_charge = (
             -constants.epsilon_0
-            * self.permittivity(y[:, :, 0])
+            * permittivity
             * electric_field
             / constants.angstrom
             * 100
@@ -226,13 +234,15 @@ class GongadzeIglic:
 
         return VoltammetryResult(
             potential=potential,  # V
-            electric_field=electric_field,  # V/A
             surface_charge=surface_charge,  # (uC/cm2)
             capacitance=capacitance,  # (uF/cm2)
         )
 
     def single_point(
-        self, x_mesh: np.ndarray, potential: float, tol: float = 1e-3
+        self,
+        potential: float,
+        x_mesh: Optional[np.ndarray] = None,
+        tol: float = 1e-3,
     ) -> np.ndarray:
         """
         Compute spatial information about the double layer at a certain potential.
@@ -270,6 +280,9 @@ class GongadzeIglic:
                 )
 
             return species_concentrations
+
+        if x_mesh is None:
+            x_mesh = create_mesh()
 
         y0 = np.zeros((2, len(x_mesh)))
         step = potential / abs(potential) * 0.01 / self.kbt_ev
