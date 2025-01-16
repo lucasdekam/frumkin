@@ -1,8 +1,2 @@
-solutions/*
-__pycache__/*
-.ipynb_checkpoints/*
-.vscode*
-*.pdf
-*.pyc
-*.pickle
-*.png
+*__pycache__*
+pyedl.egg-info/*

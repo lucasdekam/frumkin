@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyedl"
+version = "0.0.1"
+dependencies = [
+    "scipy",
+    "numpy",
+    "bvpsweep"
+]
+authors = [
+  {name="Lucas B.T. de Kam", email="l.b.t.de.kam@lic.leidenuniv.nl" },
+]
+
+[tool.setuptools.packages.find]
+where = ["."] 
