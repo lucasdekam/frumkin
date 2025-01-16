@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from scipy import constants
 import numpy as np
 
-from . import defaults as D
+from .tools import defaults as D
 
 
 def calculate_dipmom(
@@ -15,7 +15,7 @@ def calculate_dipmom(
 ) -> float:
     """
     Calculate the effective dipole moment of a solvent molecule based on its measured
-    permittivity, in elementary charge/Angstrom.
+    permittivity, in elementary charge/angstrom.
 
     Parameters:
         min_eps (float): Minimum permittivity (optical permittivity).
@@ -100,7 +100,7 @@ class Water(Solvent):
         dipole_moment (float): Dipole moment of water, calculated during initialization.
     """
 
-    name: str = "H2O"
+    name: str = r"H$_2$O"
     size: float = 1.0
     concentration: float = D.WATER_BULK_M
     min_eps: float = D.WATER_REL_ELEC_EPS
@@ -131,9 +131,6 @@ class LatticeElectrolyte:
     def __init__(self, species: List[Species]):
         self.species = species
         self._account_for_decrement()
-        self.n_site = np.sum(self.ion_sizes * self.ion_n_b) + np.sum(
-            self.sol_sizes * self.sol_n_b
-        )  # lattice site density
 
     def _account_for_decrement(self) -> None:
         """
@@ -182,6 +179,13 @@ class LatticeElectrolyte:
         return min(ohp)
 
     @property
+    def n_site(self) -> float:
+        """Lattice site density."""
+        return np.sum(self.ion_sizes * self.ion_n_b) + np.sum(
+            self.sol_sizes * self.sol_n_b
+        )
+
+    @property
     def ion_concentrations(self) -> np.ndarray:
         """Ion concentrations in mol/L."""
         return self.get_properties(Ion, "concentration")
@@ -200,7 +204,10 @@ class LatticeElectrolyte:
     def ion_n_b(self) -> np.ndarray:
         """Bulk number density of ions."""
         return (
-            self.ion_concentrations * 1e3 * constants.Avogadro * constants.angstrom**3
+            self.ion_concentrations
+            / constants.deci**3
+            * constants.Avogadro
+            * constants.angstrom**3
         )
 
     @property
@@ -232,7 +239,10 @@ class LatticeElectrolyte:
     def sol_n_b(self) -> np.ndarray:
         """Bulk number density of solvents."""
         return (
-            self.sol_concentrations * 1e3 * constants.Avogadro * constants.angstrom**3
+            self.sol_concentrations
+            / constants.deci**3
+            * constants.Avogadro
+            * constants.angstrom**3
         )
 
     @property
