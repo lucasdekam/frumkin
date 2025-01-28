@@ -3,11 +3,12 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyedl"
+name = "frumkin"
 version = "0.0.1"
 dependencies = [
     "scipy",
     "numpy",
+    "matplotlib",
 ]
 authors = [
   {name="Lucas B.T. de Kam", email="l.b.t.de.kam@lic.leidenuniv.nl" },
