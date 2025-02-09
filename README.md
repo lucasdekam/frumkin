@@ -47,7 +47,6 @@ We can also show the spatial profiles of the double layer at a fixed potential, 
 ```python
 profiles = model.single_point(potential=-1)
 f2 = profiles.plot()
-f2.savefig('result2.png')
 ```
 
 ![Spatial extent of the double layer](examples/result2.png)
