@@ -27,7 +27,7 @@ from frumkin.gongadze_iglic import GongadzeIglic
 model = GongadzeIglic(el, ohp=2.8)
 ```
 
-The `ohp` parameter specifies the width of the Stern layer in Angstrom. If it is not specified, the model will calculate the Stern layer width as half the size of a counterion (positive ions if the surface is negatively charged and vice versa). 
+The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Angstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa). 
 
 It is also possible to specify the permittivity in the Stern layer to a fixed value with the `eps_stern` parameter. If it is not specified, the permittivity depends on the local electric field.
 
@@ -60,10 +60,10 @@ Coming soon
 ## Further reading
 Further theoretical background on modified Poisson-Boltzmann models:
 
-* Introduction to the lattice-gas approach for deriving modified Poisson-Boltzmann equations: [Borukhov, Andelmand and Orland (2000)](https://doi.org/10.1016/S0013-4686(00)00576-4).
+* Introduction to the lattice-gas approach for deriving modified Poisson-Boltzmann equations: [Borukhov, Andelman and Orland (2000)](https://doi.org/10.1016/S0013-4686(00)00576-4).
 * Treatment of asymmetric ion sizes on a fixed lattice: [Zhang and Huang (2018)](https://doi.org/10.1021/acs.jpcc.8b08298).
 * Including dipoles in a lattice description: [Abrashkin, Andelman and Orland (2007)](https://doi.org/10.1103/PhysRevLett.99.077801).
-* Density-potential functional theory of electric double layers, field theory perspective : [Jun Huang (2021)](https://doi.org/10.1016/j.electacta.2021.138720).
+* Density-potential functional theory of electric double layers, field theory perspective: [Huang (2021)](https://doi.org/10.1016/j.electacta.2021.138720).
 
 ## Development
 In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PhysRevApplied.23.024009), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009). 
@@ -74,6 +74,6 @@ It might be good to upgrade the solver from SciPy's `solve_bvp` to a finite elem
 
 ## Papers that used Frumkin
 
-* The branch `her-paper` contains the code that was used to produce the results in the paper: de Kam, L. B. T., Maier, T. L., & Krischer, K. (2024). Electrolyte effects on the alkaline hydrogen evolution reaction: a mean-field approach. _Electrochimica Acta_, 144530.
+* The branch `her-paper` contains the code that was used to produce the results in the paper: [De Kam, L. B. T., Maier, T. L., & Krischer, K. (2024). Electrolyte effects on the alkaline hydrogen evolution reaction: a mean-field approach. _Electrochimica Acta_, 144530.](https://doi.org/10.1016/j.electacta.2024.144530)
     
-* The branch `nanostructure-paper` contains the code for the following paper: Maier, T. L., T. de Kam, L. B. T., Golibrzuch, M., Angerer, T., Becherer, M., & Krischer, K. (2024). How Metal/Insulator Interfaces Enable an Enhancement of the Hydrogen Evolution Reaction Kinetics. _ChemElectroChem_, e202400109.
+* The branch `nanostructure-paper` contains the code for the following paper: [Maier, T. L., T. De Kam, L. B. T., Golibrzuch, M., Angerer, T., Becherer, M., & Krischer, K. (2024). How Metal/Insulator Interfaces Enable an Enhancement of the Hydrogen Evolution Reaction Kinetics. _ChemElectroChem_, e202400109.](https://doi.org/10.1002/celc.202400109)
