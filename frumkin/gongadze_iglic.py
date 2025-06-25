@@ -294,7 +294,7 @@ class GongadzeIglic:
 
             # Store ion densities
             for i, name in enumerate(self.el.ion_names):
-                species_concentrations[name] = np.concat(
+                species_concentrations[name] = np.concatenate(
                     [
                         np.zeros(x_stern.shape) * np.nan,
                         n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
@@ -303,7 +303,7 @@ class GongadzeIglic:
 
             # Store solvent densities
             for i, name in enumerate(self.el.sol_names):
-                species_concentrations[name] = np.concat(
+                species_concentrations[name] = np.concatenate(
                     [
                         np.zeros(x_stern.shape) * np.nan,
                         n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
@@ -349,9 +349,9 @@ class GongadzeIglic:
         stern_efield = np.ones(stern_x.shape) * (potential - diffuse_potential[0]) / ohp
 
         return SinglePointResult(
-            x=np.concat([stern_x, x_mesh + ohp]),
-            potential=np.concat([stern_potential, diffuse_potential]),
-            electric_field=np.concat([stern_efield, diffuse_efield]),
-            permittivity=np.concat([stern_permittivity, diffuse_permittivity]),
+            x=np.concatenate([stern_x, x_mesh + ohp]),
+            potential=np.concatenate([stern_potential, diffuse_potential]),
+            electric_field=np.concatenate([stern_efield, diffuse_efield]),
+            permittivity=np.concatenate([stern_permittivity, diffuse_permittivity]),
             concentrations=_species_concentrations(y, stern_x),
         )
