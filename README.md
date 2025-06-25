@@ -6,7 +6,7 @@ This repository contains code for modelling the electric double layer (in absenc
 
 ## Minimal example
 
-First, we need to define an electrolyte. We specify a list of solvents and ions. Water has been implemented out-of-the-box, and has size parameter 1. The ions have sizes 6 and 2, respectively. The size parameter specifies the size of species relative to the lattice spacing. The lattice spacing is defined here such that if all lattice sites are occupied by water molecules, their density equals the water density at room temperature. 
+First, we need to define an electrolyte. We specify a list of solvents and ions. Water has been implemented out-of-the-box, and has size parameter 1. The ions have sizes 6 and 2, respectively. The size parameter specifies the size of species relative to the lattice spacing. The lattice spacing is defined here such that if all lattice sites are occupied by water molecules, their density equals the water density at room temperature.
 
 ```python
 from frumkin.electrolyte import LatticeElectrolyte, Ion, Water
@@ -18,7 +18,7 @@ el = LatticeElectrolyte([
 ])
 ```
 
-For implementing other solvents look at the definition of the `Solvent` class in `frumkin/electrolyte.py`. 
+For implementing other solvents look at the definition of the `Solvent` class in `frumkin/electrolyte.py`.
 
 Next, we set up the model:
 
@@ -27,18 +27,18 @@ from frumkin.gongadze_iglic import GongadzeIglic
 model = GongadzeIglic(el, ohp=2.8)
 ```
 
-The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Angstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa). 
+The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Angstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa).
 
 It is also possible to specify the permittivity in the Stern layer to a fixed value with the `eps_stern` parameter. If it is not specified, the permittivity depends on the local electric field.
 
 Given an array of potentials w.r.t the potential of zero charge, we can run a voltammetry experiment and plot the resulting surface charge and capacitance:
 ```python
-import numpy as np 
+import numpy as np
 potential = np.linspace(-1, 1, 200)
 result = model.voltammetry(potential)
 f = result.plot()
 ```
-(the `f=` is necessary in notebooks to not get double figures). 
+(the `f=` is necessary in notebooks to not get double figures).
 
 ![Charge and capacitance plots](examples/result1.png)
 
@@ -55,7 +55,8 @@ For more examples, see the `examples` folder.
 
 ## Nondimensionalization
 
-Coming soon
+* The standard unit of length is Angstrom ($\mathrm{\AA}$) and the standard unit of energy is electronvolt (eV).
+* The second-order Poisson-Boltzmann equation has been rewritten into a system of two first-order equations (the derivation was rather involved and was checked with Wolfram Mathematica; it still needs to be written out at some point). A starting point for redoing this process with SymPy can be found in `solving.ipynb`.
 
 ## Further reading
 Further theoretical background on modified Poisson-Boltzmann models:
@@ -66,14 +67,14 @@ Further theoretical background on modified Poisson-Boltzmann models:
 * Density-potential functional theory of electric double layers, field theory perspective: [Huang (2021)](https://doi.org/10.1016/j.electacta.2021.138720).
 
 ## Development
-In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PhysRevApplied.23.024009), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009). 
+In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PhysRevApplied.23.024009), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009).
 
 
-It might be good to upgrade the solver from SciPy's `solve_bvp` to a finite element solver like FEniCS. Such a solver has already been implemented for Poisson-Nernst-Planck models in the [electrochemistry module](https://libatoms.github.io/matscipy/applications/electrochemistry_2.html) of `matscipy`. 
+It might be good to upgrade the solver from SciPy's `solve_bvp` to a finite element solver like FEniCS. Such a solver has already been implemented for Poisson-Nernst-Planck models in the [electrochemistry module](https://libatoms.github.io/matscipy/applications/electrochemistry_2.html) of `matscipy`.
 
 
 ## Papers that used Frumkin
 
 * The branch `her-paper` contains the code that was used to produce the results in the paper: [De Kam, L. B. T., Maier, T. L., & Krischer, K. (2024). Electrolyte effects on the alkaline hydrogen evolution reaction: a mean-field approach. _Electrochimica Acta_, 144530.](https://doi.org/10.1016/j.electacta.2024.144530)
-    
+
 * The branch `nanostructure-paper` contains the code for the following paper: [Maier, T. L., T. De Kam, L. B. T., Golibrzuch, M., Angerer, T., Becherer, M., & Krischer, K. (2024). How Metal/Insulator Interfaces Enable an Enhancement of the Hydrogen Evolution Reaction Kinetics. _ChemElectroChem_, e202400109.](https://doi.org/10.1002/celc.202400109)
