@@ -2,7 +2,7 @@
 Modelling the double layer using the Gongadze-Iglic approach.
 """
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Literal
 import numpy as np
 from numpy import newaxis
 from scipy import constants
@@ -10,9 +10,10 @@ from scipy import constants
 from .solve.bvpsweep import sweep_solve_bvp
 
 from .tools import langevin as L
-from .tools.mesh import create_mesh
+from .tools.mesh import get_default_mesh
 from .electrolyte import LatticeElectrolyte
 from .results import VoltammetryResult, SinglePointResult
+from . import boundary_conditions as bc
 
 
 class GongadzeIglic:
@@ -26,9 +27,16 @@ class GongadzeIglic:
     temperature : float, optional
         Temperature in Kelvin. Default is 298 K.
     ohp : float, optional
-        Outer Helmholtz plane distance.
+        Outer Helmholtz plane distance in Angstrom.
     eps_stern : float, optional
         Stern layer permittivity.
+    boundary: "semi-infinite", "symmetric" or "anti-symmetric"
+        Specifies boundary condition type.
+    xmax: float, optional
+        system length in Angstrom. Default: 1000 A (100 nm). Not used if a custom
+        x_mesh is specified.
+    x_mesh: np.ndarray, optional
+        custom mesh for the system. If not specified, a suitable default is chosen
 
     Attributes
     ----------
@@ -50,6 +58,13 @@ class GongadzeIglic:
         temperature: float = 298,
         ohp: Optional[float] = None,
         eps_stern: Optional[float] = None,
+        boundary: Literal[
+            "semi-infinite",
+            "symmetric",
+            "antisymmetric",
+        ] = "semi-infinite",
+        xmax: float = 1000,
+        x_mesh: Optional[np.ndarray] = None,
     ) -> None:
         self.el = electrolyte
         self.ohp = ohp
@@ -62,6 +77,11 @@ class GongadzeIglic:
             / kbt
         )
         self.kbt_ev = kbt / constants.elementary_charge
+        self.boundary = boundary
+        if x_mesh is None:
+            self.x_mesh = get_default_mesh(self.boundary, xmax)
+        else:
+            self.x_mesh = x_mesh
 
     def densities(self, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -170,12 +190,17 @@ class GongadzeIglic:
             if self.eps_stern
             else 1
         )
-        return np.array(
-            [
-                ya[0] - y0 - ya[1] * ohp * eps_ratio,
-                yb[0],
-            ]
-        )
+        if self.boundary == "semi-infinite":
+            boundary_residual = bc.semi_infinite(ya, yb, y0, ohp, eps_ratio)
+        elif self.boundary == "symmetric":
+            boundary_residual = bc.symmetric(ya, yb, y0, ohp, eps_ratio)
+        elif self.boundary == "antisymmetric":
+            boundary_residual = bc.antisymmetric(ya, yb, y0, ohp, eps_ratio)
+        else:
+            raise ValueError(
+                f"Invalid boundary type: {self.boundary}. Must be 'semi-infinite', 'symmetric', or 'antisymmetric'."
+            )
+        return boundary_residual
 
     def permittivity(self, y: np.ndarray) -> np.ndarray:
         """
@@ -205,7 +230,6 @@ class GongadzeIglic:
     def voltammetry(
         self,
         potential: np.ndarray,
-        x_mesh: Optional[np.ndarray] = None,
         tol: float = 1e-3,
     ) -> np.ndarray:
         """
@@ -226,15 +250,12 @@ class GongadzeIglic:
             Results container with attributes potential, electric_field,
             surface_charge, and capacitance.
         """
-        if x_mesh is None:
-            x_mesh = create_mesh()
-
-        y0 = np.zeros((2, len(x_mesh)))
+        y0 = np.zeros((2, len(self.x_mesh)))
 
         y = sweep_solve_bvp(
             fun=self.ode_rhs,
             bc=self.boundary_condition,
-            x0=x_mesh,
+            x0=self.x_mesh,
             y0=y0,
             sweep_par=potential / self.kbt_ev,
             sweep_par_start=0.0,
@@ -266,7 +287,6 @@ class GongadzeIglic:
     def single_point(
         self,
         potential: float,
-        x_mesh: Optional[np.ndarray] = None,
         tol: float = 1e-3,
     ) -> np.ndarray:
         """
@@ -276,8 +296,6 @@ class GongadzeIglic:
         ----------
         potential : float
             Applied potential at the electrode.
-        x_mesh : np.ndarray, optional
-            Spatial mesh points.
         tol : float, optional
             Tolerance for the solver. Default is 1e-3.
 
@@ -287,7 +305,7 @@ class GongadzeIglic:
             Results container with potential, electric field, permittivity, and concentration profiles.
         """
 
-        def _species_concentrations(y, x_stern) -> Dict:
+        def _species_concentrations(y, x_stern_left, x_stern_right) -> Dict:
             n_ion, n_sol = self.densities(y)
 
             species_concentrations = {}
@@ -296,8 +314,9 @@ class GongadzeIglic:
             for i, name in enumerate(self.el.ion_names):
                 species_concentrations[name] = np.concatenate(
                     [
-                        np.zeros(x_stern.shape) * np.nan,
+                        np.zeros(x_stern_left.shape) * np.nan,
                         n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                        np.zeros(x_stern_right.shape) * np.nan,
                     ]
                 )
 
@@ -305,22 +324,20 @@ class GongadzeIglic:
             for i, name in enumerate(self.el.sol_names):
                 species_concentrations[name] = np.concatenate(
                     [
-                        np.zeros(x_stern.shape) * np.nan,
+                        np.zeros(x_stern_right.shape) * np.nan,
                         n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                        np.zeros(x_stern_right.shape) * np.nan,
                     ]
                 )
 
             return species_concentrations
 
-        if x_mesh is None:
-            x_mesh = create_mesh()
-
-        y0 = np.zeros((2, len(x_mesh)))
+        y0 = np.zeros((2, len(self.x_mesh)))
         step = potential / abs(potential) * 0.01 / self.kbt_ev
         y = sweep_solve_bvp(
             fun=self.ode_rhs,
             bc=self.boundary_condition,
-            x0=x_mesh,
+            x0=self.x_mesh,
             y0=y0,
             sweep_par=np.arange(
                 start=0,
@@ -336,7 +353,7 @@ class GongadzeIglic:
         diffuse_efield = -y[1, :] * self.kbt_ev
         diffuse_permittivity = self.permittivity(y)
 
-        # Compute quantities in the Stern layer
+        # Compute quantities in the left Stern layer
         ohp = self.ohp if self.ohp else self.el.ohp(potential)
         stern_x = np.linspace(0, ohp, 10)
         stern_permittivity = np.ones(stern_x.shape) * (
@@ -348,10 +365,45 @@ class GongadzeIglic:
         )
         stern_efield = np.ones(stern_x.shape) * (potential - diffuse_potential[0]) / ohp
 
+        # Compute quantities in the right Stern layer
+        if self.boundary == "semi-infinite":
+            r_stern_permittivity = np.ones(stern_x.shape) * diffuse_permittivity[-1]
+            r_stern_potential = np.ones(stern_x.shape) * diffuse_potential[-1]
+            r_stern_efield = np.ones(stern_x.shape) * diffuse_efield[-1]
+        elif self.boundary == "symmetric":
+            r_stern_permittivity = np.ones(stern_x.shape) * (
+                self.eps_stern if self.eps_stern else diffuse_permittivity[-1]
+            )
+            eps_ratio = diffuse_permittivity[-1] / r_stern_permittivity
+            r_stern_potential = (
+                diffuse_potential[-1] - diffuse_efield[-1] * stern_x * eps_ratio
+            )
+            r_stern_efield = (
+                -np.ones(stern_x.shape) * (potential - diffuse_potential[-1]) / ohp
+            )
+        elif self.boundary == "antisymmetric":
+            r_stern_permittivity = np.ones(stern_x.shape) * (
+                self.eps_stern if self.eps_stern else diffuse_permittivity[-1]
+            )
+            eps_ratio = diffuse_permittivity[-1] / r_stern_permittivity
+            r_stern_potential = (
+                diffuse_potential[-1] - diffuse_efield[-1] * stern_x * eps_ratio
+            )
+            r_stern_efield = (
+                np.ones(stern_x.shape) * (potential - diffuse_potential[-1]) / ohp
+            )
+
+        r_stern_x = np.linspace(self.x_mesh[-1] + ohp, self.x_mesh[-1] + 2 * ohp, 10)
         return SinglePointResult(
-            x=np.concatenate([stern_x, x_mesh + ohp]),
-            potential=np.concatenate([stern_potential, diffuse_potential]),
-            electric_field=np.concatenate([stern_efield, diffuse_efield]),
-            permittivity=np.concatenate([stern_permittivity, diffuse_permittivity]),
-            concentrations=_species_concentrations(y, stern_x),
+            x=np.concatenate([stern_x, self.x_mesh + ohp, r_stern_x]),
+            potential=np.concatenate(
+                [stern_potential, diffuse_potential, r_stern_potential]
+            ),
+            electric_field=np.concatenate(
+                [stern_efield, diffuse_efield, r_stern_efield]
+            ),
+            permittivity=np.concatenate(
+                [stern_permittivity, diffuse_permittivity, r_stern_permittivity]
+            ),
+            concentrations=_species_concentrations(y, stern_x, r_stern_x),
         )
