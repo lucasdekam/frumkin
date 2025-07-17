@@ -67,7 +67,7 @@ Further theoretical background on modified Poisson-Boltzmann models:
 * Density-potential functional theory of electric double layers, field theory perspective: [Huang (2021)](https://doi.org/10.1016/j.electacta.2021.138720).
 
 ## Development
-In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PhysRevApplied.23.024009), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009).
+In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PRXEnergy.3.043008), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009).
 
 
 It might be good to upgrade the solver from SciPy's `solve_bvp` to a finite element solver like FEniCS. Such a solver has already been implemented for Poisson-Nernst-Planck models in the [electrochemistry module](https://libatoms.github.io/matscipy/applications/electrochemistry_2.html) of `matscipy`.
