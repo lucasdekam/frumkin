@@ -31,7 +31,10 @@ def create_semi_infinite_mesh(xmax: float = 1000, n_points: int = 1000):
 
 
 def create_symmetric_mesh(xmax=100, n_points=1000):
-    return np.linspace(0, xmax, n_points)
+    max_exponent = np.log10(xmax / 2)
+    mesh = np.logspace(-6, max_exponent, n_points) - 1e-6
+    r_mesh = np.flip(xmax - mesh)[1:]
+    return np.concatenate([mesh, r_mesh])
 
 
 def get_default_mesh(
