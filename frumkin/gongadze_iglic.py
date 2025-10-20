@@ -333,17 +333,21 @@ class GongadzeIglic:
             return species_concentrations
 
         y0 = np.zeros((2, len(self.x_mesh)))
-        step = potential / abs(potential) * 0.01 / self.kbt_ev
+        if potential != 0:
+            step = potential / abs(potential) * 0.01 / self.kbt_ev
+            sweep_par = np.arange(
+                start=0,
+                stop=potential / self.kbt_ev + step,
+                step=step,
+            )
+        else:
+            sweep_par = np.zeros(1)
         y = sweep_solve_bvp(
             fun=self.ode_rhs,
             bc=self.boundary_condition,
             x0=self.x_mesh,
             y0=y0,
-            sweep_par=np.arange(
-                start=0,
-                stop=potential / self.kbt_ev + step,
-                step=step,
-            ),
+            sweep_par=sweep_par,
             sweep_par_start=0,
             tol=tol,
         )[:, -1, :]
