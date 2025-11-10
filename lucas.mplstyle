@@ -1,0 +1,40 @@
+# ============================================
+#  Matplotlib Style: Info-Gap Figure Style with CM Bright LaTeX
+# ============================================
+
+# --- General ---
+figure.dpi            : 120
+savefig.dpi           : 120
+savefig.transparent   : True
+
+
+# --- Axes ---
+axes.linewidth        : 0.5
+axes.edgecolor        : black
+axes.spines.top       : False
+axes.spines.right     : False
+axes.labelpad         : 3
+axes.titlepad         : 3
+axes.grid             : False
+axes.autolimit_mode   : round_numbers
+
+# --- Font ---
+font.size             : 8.5
+
+# --- Ticks ---
+xtick.direction       : out
+ytick.direction       : out
+xtick.major.size      : 3
+ytick.major.size      : 3
+xtick.minor.size      : 1.5
+ytick.minor.size      : 1.5
+xtick.major.width     : 0.5
+ytick.major.width     : 0.5
+xtick.minor.width     : 0.5
+ytick.minor.width     : 0.5
+
+# --- Legend ---
+legend.frameon        : False
+
+# --- Figure Layout ---
+figure.autolayout     : True
