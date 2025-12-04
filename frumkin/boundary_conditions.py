@@ -3,6 +3,59 @@ Boundary conditions for Poisson-Boltzmann models
 """
 
 import numpy as np
+from scipy import constants
+from .tools.langevin import langevin_x
+
+
+def waterlayer(
+    ya: np.ndarray,
+    yb: np.ndarray,
+    y0: float,
+    eps_ohp: float,
+    **kwargs,
+):
+    eps_1 = kwargs.get("eps_1", 10)
+    eps_2 = kwargs.get("eps_2", 7.5)
+    eps_3 = kwargs.get("eps_3", 35)
+    d_1 = kwargs.get("d_1", 1.5)
+    d_2 = kwargs.get("d_2", 2)
+    d_3 = kwargs.get("d_3", 3)
+
+    n_sites = kwargs.get("n_sites", 0.139)
+    water_coverage = kwargs.get("water_coverage", 0.55)
+    dip = kwargs.get(
+        "dip", 1.85 * 3.335e-30 / constants.elementary_charge / constants.angstrom
+    )
+    temperature = kwargs.get("temperature", 298)
+    kbt = constants.Boltzmann * temperature
+    kappa = (
+        constants.elementary_charge**2 / constants.epsilon_0 / constants.angstrom / kbt
+    )
+    delta_chemi = kwargs.get("delta_chemi", 0)
+
+    dy_water = (
+        n_sites
+        * water_coverage
+        * dip
+        * kappa
+        * langevin_x(dip * ya[1] + delta_chemi).item()
+        / eps_2
+    )
+    # print(-ya[1] * eps_ohp)
+    # y_onset = constants.elementary_charge * kwargs.get("E_onset", 1.0) / kbt
+    # oxide_charge = kwargs.get("oxide_charge", 0.12)
+    # oxide_coverage = np.exp(-(y_onset - y0)) / (1 + np.exp(-(y_onset - y0)))
+    # dy_adsorbate = kappa * d_ox / eps_1 * n_sites * oxide_coverage * oxide_charge
+
+    return np.array(
+        [
+            ya[0].item()
+            - y0
+            - ya[1].item() * eps_ohp * (d_1 / eps_1 + d_2 / eps_2 + d_3 / eps_3)
+            + dy_water,  # - dy_adsorbate,
+            yb[0],
+        ]
+    )
 
 
 def semi_infinite(
