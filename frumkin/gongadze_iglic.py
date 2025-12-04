@@ -26,6 +26,7 @@ class GongadzeIglic:
         electrolyte: LatticeElectrolyte,
         temperature: float = 298,
         xmax: float = 1000,
+        **kwargs,
     ) -> None:
 
         self.el = electrolyte
@@ -39,6 +40,7 @@ class GongadzeIglic:
             / kbt
         )
         self.kbt_ev = kbt / constants.elementary_charge
+        self.waterlayer_kwargs = kwargs
 
         # Mesh
         self.x_mesh = get_default_mesh("semi-infinite", xmax)
@@ -122,7 +124,7 @@ class GongadzeIglic:
         Stern layer / GI boundary condition wrapper.
         """
         eps = self.permittivity(ya.reshape(2, 1)).squeeze()
-        return bc.waterlayer(ya, yb, y0, eps_ohp=eps)
+        return bc.waterlayer(ya, yb, y0, eps_ohp=eps, **self.waterlayer_kwargs)
 
     # ------------------------------------------------------------------
     # Voltammetry

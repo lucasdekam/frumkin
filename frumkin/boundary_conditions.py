@@ -15,17 +15,17 @@ def waterlayer(
     **kwargs,
 ):
     eps_1 = kwargs.get("eps_1", 10)
-    eps_2 = kwargs.get("eps_2", 7.5)
-    eps_3 = kwargs.get("eps_3", 35)
-    d_1 = kwargs.get("d_1", 1.5)
-    d_2 = kwargs.get("d_2", 2)
+    eps_2 = kwargs.get("eps_2", 3.25)
+    eps_3 = kwargs.get("eps_3", 78)
+    d_1 = kwargs.get("d_1", 1)
+    d_2 = kwargs.get("d_2", 1.1)
     d_3 = kwargs.get("d_3", 3)
 
     n_sites = kwargs.get("n_sites", 0.139)
     water_coverage = kwargs.get("water_coverage", 0.55)
-    dip = kwargs.get(
-        "dip", 1.85 * 3.335e-30 / constants.elementary_charge / constants.angstrom
-    )
+    dipole_debye = kwargs.get("dipole_debye", 0.73)
+    dip = dipole_debye * 3.335e-30 / constants.elementary_charge / constants.angstrom
+
     temperature = kwargs.get("temperature", 298)
     kbt = constants.Boltzmann * temperature
     kappa = (
@@ -38,7 +38,7 @@ def waterlayer(
         * water_coverage
         * dip
         * kappa
-        * langevin_x(dip * ya[1] + delta_chemi).item()
+        * langevin_x(dip * ya[1] * eps_ohp / eps_2 + delta_chemi).item()
         / eps_2
     )
     # print(-ya[1] * eps_ohp)
