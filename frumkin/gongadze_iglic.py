@@ -2,9 +2,8 @@
 Modelling the double layer using the Gongadze-Iglic approach.
 """
 
-from typing import Optional, Dict, Literal
+from typing import Dict
 import numpy as np
-from numpy import newaxis
 from scipy import constants
 
 from .solve.bvpsweep import sweep_solve_bvp
@@ -65,7 +64,7 @@ class GongadzeIglic:
         """
         phi, dphi = y
         ion_b = np.exp(-self._q * phi)
-        sol_b = L.sinh_x_over_x(self._p * dphi)
+        sol_b = np.ones(dphi.shape)  # L.sinh_x_over_x(self._p * dphi)
 
         denom = (self._ion_f_b * ion_b).sum(0) + (self._sol_f_b * sol_b).sum(0)
 
@@ -159,4 +158,94 @@ class GongadzeIglic:
             potential=potential,
             surface_charge=surface_charge,
             capacitance=capacitance,
+        )
+
+    def single_point(
+        self,
+        potential: float,
+        tol: float = 1e-3,
+    ) -> np.ndarray:
+        """
+        Compute spatial information about the double layer at a certain potential.
+
+        Parameters
+        ----------
+        potential : float
+            Applied potential at the electrode.
+        tol : float, optional
+            Tolerance for the solver. Default is 1e-3.
+
+        Returns
+        -------
+        SinglePointResult
+            Results container with potential, electric field, permittivity, and concentration profiles.
+        """
+
+        def _species_concentrations(y, x_stern_left) -> Dict:
+            n_ion, n_sol = self.densities(y)
+
+            species_concentrations = {}
+
+            # Store ion densities
+            for i, name in enumerate(self.el.ion_names):
+                species_concentrations[name] = np.concatenate(
+                    [
+                        np.zeros(x_stern_left.shape) * np.nan,
+                        n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                    ]
+                )
+
+            # Store solvent densities
+            for i, name in enumerate(self.el.sol_names):
+                species_concentrations[name] = np.concatenate(
+                    [
+                        np.zeros(x_stern_left.shape) * np.nan,
+                        n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
+                    ]
+                )
+
+            return species_concentrations
+
+        y0 = np.zeros((2, len(self.x_mesh)))
+        if potential != 0:
+            step = potential / abs(potential) * 0.01 / self.kbt_ev
+            sweep_par = np.arange(
+                start=0,
+                stop=potential / self.kbt_ev + step,
+                step=step,
+            )
+        else:
+            sweep_par = np.zeros(1)
+        y = sweep_solve_bvp(
+            fun=self.ode_rhs,
+            bc=self.boundary_condition,
+            x0=self.x_mesh,
+            y0=y0,
+            sweep_par=sweep_par,
+            sweep_par_start=0,
+            tol=tol,
+        )[:, -1, :]
+
+        # Compute quantities in the diffuse layer
+        diffuse_potential = y[0, :] * self.kbt_ev
+        diffuse_efield = -y[1, :] * self.kbt_ev
+        diffuse_permittivity = self.permittivity(y)
+
+        stern_x, stern_y = bc.calculate_stern_profile(
+            y[:, 0],
+            potential / self.kbt_ev,
+            diffuse_permittivity[0],
+            **self.waterlayer_kwargs,
+        )
+        stern_potential = stern_y * self.kbt_ev
+        return SinglePointResult(
+            x=np.concatenate([stern_x, self.x_mesh + stern_x[-1]]),
+            potential=np.concatenate([stern_potential, diffuse_potential]),
+            electric_field=np.concatenate(
+                [np.zeros(stern_potential.shape), diffuse_efield]
+            ),
+            permittivity=np.concatenate(
+                [np.zeros(stern_potential.shape), diffuse_permittivity]
+            ),
+            concentrations=_species_concentrations(y, stern_x),
         )

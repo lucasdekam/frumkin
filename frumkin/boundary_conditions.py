@@ -7,55 +7,102 @@ from scipy import constants
 from .tools.langevin import langevin_x
 
 
-def waterlayer(
-    ya: np.ndarray,
-    yb: np.ndarray,
-    y0: float,
-    eps_ohp: float,
-    **kwargs,
-):
-    eps_1 = kwargs.get("eps_1", 10)
-    eps_2 = kwargs.get("eps_2", 3.25)
-    eps_3 = kwargs.get("eps_3", 78)  # 35)
-    d_1 = kwargs.get("d_1", 1)
-    d_2 = kwargs.get("d_2", 1)  # 1.1
-    d_3 = kwargs.get("d_3", 2)  # 3
+import numpy as np
+from scipy import constants
 
-    n_sites = kwargs.get("n_sites", 0.139)
-    water_coverage = kwargs.get("water_coverage", 0.55)
-    dipole_debye = kwargs.get("dipole_debye", 0.73)
+
+def get_stern_components(ya, eps_ohp, params):
+    """
+    Shared logic to calculate the field-dependent terms in the Stern layer.
+    ya[1] is the dimensionless potential gradient at the OHP.
+    """
+    # 1. Extract physical constants/parameters
+    d_vals = [params.get("d_1", 1.0), params.get("d_2", 1.1), params.get("d_3", 1.0)]
+    eps_vals = [
+        params.get("eps_1", 10.0),
+        params.get("eps_2", 3.25),
+        params.get("eps_3", 78.0),
+    ]
+
+    n_sites = params.get("n_sites", 0.139)
+    water_coverage = params.get("water_coverage", 0.55)
+    dipole_debye = params.get("dipole_debye", 0.75)
+    temp = params.get("temperature", 298)
+    delta_chemi = params.get("delta_chemi", 0)
+
+    # Conversion factors for dipole potential drop
+    # dip is in units of [e * Angstrom]
     dip = dipole_debye * 3.335e-30 / constants.elementary_charge / constants.angstrom
-
-    temperature = kwargs.get("temperature", 298)
-    kbt = constants.Boltzmann * temperature
-    kappa = (
-        constants.elementary_charge**2 / constants.epsilon_0 / constants.angstrom / kbt
-    )
-    delta_chemi = kwargs.get("delta_chemi", 0)
-
-    dy_water = (
-        n_sites
-        * water_coverage
-        * dip
-        * kappa
-        * langevin_x(dip * ya[1] * eps_ohp / eps_2 + delta_chemi).item()
-        / eps_2
+    kbt = constants.Boltzmann * temp
+    kappa = constants.elementary_charge**2 / (
+        constants.epsilon_0 * constants.angstrom * kbt
     )
 
-    # y_onset = constants.elementary_charge * kwargs.get("E_onset", 0.5) / kbt
-    # oxide_charge = kwargs.get("oxide_charge", 0.12)
-    # oxide_coverage = np.exp(-(y_onset - y0)) / (1 + np.exp(-(y_onset - y0)))
-    # dy_adsorbate = kappa * d_1 / eps_1 * n_sites * oxide_coverage * oxide_charge
+    # 2. Calculate Potential Drop due to Water Dipoles (dy_water)
+    # Applied at layer 2 (the water layer)
+    # Langevin argument depends on the local field
+    langevin_arg = dip * ya[1].item() * eps_ohp / eps_vals[1] + delta_chemi
+
+    dy_dipole = (
+        n_sites * water_coverage * dip * kappa * langevin_x(langevin_arg)
+    ) / eps_vals[1]
+
+    # 3. Calculate Potential Drop due to Free Charge (ya[1] * eps_ohp)
+    # Delta_phi_i = E_i * d_i = (sigma_free / epsilon_i) * d_i
+    # In your dimensionless code: ya[1] * eps_ohp / eps_i * d_i
+    phi_drops_charge = [
+        -(ya[1].item() * eps_ohp / e) * d for e, d in zip(eps_vals, d_vals)
+    ]
+
+    return phi_drops_charge, dy_dipole, d_vals
+
+
+def waterlayer(ya, yb, y0, eps_ohp, **kwargs):
+    """
+    Boundary condition for the BVP solver.
+    Ensures: phi_M - sum(drops) = phi_OHP
+    """
+    phi_drops, dy_dipole, _ = get_stern_components(ya, eps_ohp, kwargs)
+
+    # Total potential drop across all Stern slabs
+    total_drop = (
+        sum(phi_drops) + dy_dipole
+    )  # Subtracting because dipoles usually oppose the field
 
     return np.array(
         [
-            ya[0].item()
-            - y0
-            - ya[1].item() * eps_ohp * (d_1 / eps_1 + d_2 / eps_2 + d_3 / eps_3)
-            + dy_water,  # - dy_adsorbate,
-            yb[0],
+            ya[0].item() - (y0 - total_drop.item()),
+            yb[0].item(),  # Potential at infinity (bulk) is 0
         ]
     )
+
+
+def calculate_stern_profile(ya, y0, eps_ohp, **kwargs):
+    """
+    Calculates the (x, y) coordinates of the potential through the Stern layer.
+    Returns: x_coords (distance from electrode), y_coords (potential)
+    """
+    phi_drops, dy_dipole, d_vals = get_stern_components(ya, eps_ohp, kwargs)
+
+    # x=0 is the electrode surface (Metal)
+    x = [0]
+    y = [y0]
+
+    # Layer 1
+    x.append(x[-1] + d_vals[0])
+    y.append(y[-1] - phi_drops[0].item())
+
+    # Layer 2 (Water layer - includes the dipole jump at the end of the layer)
+    x.append(x[-1] + d_vals[1])
+    # The dipole contribution is often modeled as a sheet at the interface
+    # or distributed; here we apply it at the end of layer 2.
+    y.append(y[-1] - phi_drops[1].item() + dy_dipole.item())
+
+    # Layer 3
+    x.append(x[-1] + d_vals[2])
+    y.append(y[-1] - phi_drops[2].item())
+
+    return np.array(x), np.array(y)
 
 
 def semi_infinite(
