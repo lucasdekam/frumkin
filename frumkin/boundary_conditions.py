@@ -16,10 +16,10 @@ def waterlayer(
 ):
     eps_1 = kwargs.get("eps_1", 10)
     eps_2 = kwargs.get("eps_2", 3.25)
-    eps_3 = kwargs.get("eps_3", 78)
+    eps_3 = kwargs.get("eps_3", 78)  # 35)
     d_1 = kwargs.get("d_1", 1)
-    d_2 = kwargs.get("d_2", 1.1)
-    d_3 = kwargs.get("d_3", 3)
+    d_2 = kwargs.get("d_2", 1)  # 1.1
+    d_3 = kwargs.get("d_3", 2)  # 3
 
     n_sites = kwargs.get("n_sites", 0.139)
     water_coverage = kwargs.get("water_coverage", 0.55)
@@ -41,11 +41,11 @@ def waterlayer(
         * langevin_x(dip * ya[1] * eps_ohp / eps_2 + delta_chemi).item()
         / eps_2
     )
-    # print(-ya[1] * eps_ohp)
-    # y_onset = constants.elementary_charge * kwargs.get("E_onset", 1.0) / kbt
+
+    # y_onset = constants.elementary_charge * kwargs.get("E_onset", 0.5) / kbt
     # oxide_charge = kwargs.get("oxide_charge", 0.12)
     # oxide_coverage = np.exp(-(y_onset - y0)) / (1 + np.exp(-(y_onset - y0)))
-    # dy_adsorbate = kappa * d_ox / eps_1 * n_sites * oxide_coverage * oxide_charge
+    # dy_adsorbate = kappa * d_1 / eps_1 * n_sites * oxide_coverage * oxide_charge
 
     return np.array(
         [
