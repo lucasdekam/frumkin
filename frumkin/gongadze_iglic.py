@@ -263,7 +263,7 @@ class GongadzeIglic:
             tol=tol,
         )
 
-        phi_prime = np.nan * np.ones(y0[0, :])
+        phi_prime = np.nan * y0[0, :]
         if x_prime is not None:
             phi_prime = [
                 np.interp(x=x_prime, xp=self.x_mesh, yp=y[0, i, :])
