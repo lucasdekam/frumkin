@@ -20,14 +20,13 @@ class VoltammetryResult:
         Surface charge in uC/cm^2.
     capacitance : np.ndarray
         Capacitance in uF/cm^2.
-    phi_prime: np.ndarray
-        Potential at the reaction plane
+    electric_field : np.ndarray
     """
 
     potential: np.ndarray
     surface_charge: np.ndarray
     capacitance: np.ndarray
-    phi_prime: np.ndarray
+    electric_field: np.ndarray
 
 
 @dataclass

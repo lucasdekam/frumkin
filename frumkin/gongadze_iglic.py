@@ -230,7 +230,6 @@ class GongadzeIglic:
     def voltammetry(
         self,
         potential: np.ndarray,
-        x_prime: Optional[float] = None,
         tol: float = 1e-3,
     ) -> VoltammetryResult:
         """
@@ -240,8 +239,6 @@ class GongadzeIglic:
         ----------
         potential : np.ndarray
             Applied potential array.
-        x_prime : float, optional
-            Reaction plane at which to evaluate the potential in the double layer.
         tol : float, optional
             Tolerance for the solver. Default is 1e-3.
 
@@ -263,14 +260,6 @@ class GongadzeIglic:
             tol=tol,
         )
 
-        phi_prime = np.nan * y0[0, :]
-        if x_prime is not None:
-            phi_prime = [
-                np.interp(x=x_prime, xp=self.x_mesh, yp=y[0, i, :])
-                for i, _ in enumerate(potential)
-            ]
-            phi_prime = np.array(phi_prime)
-
         # Compute the surface electric field
         electric_field = y[1, :, 0] * self.kbt_ev
         permittivity = self.permittivity(y[:, :, 0])
@@ -291,7 +280,7 @@ class GongadzeIglic:
             potential=potential,  # V
             surface_charge=surface_charge,  # (uC/cm2)
             capacitance=capacitance,  # (uF/cm2)
-            phi_prime=phi_prime,  # V or nan
+            electric_field=electric_field,  # V/A
         )
 
     def single_point(
