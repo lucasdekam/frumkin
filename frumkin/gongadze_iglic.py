@@ -261,12 +261,12 @@ class GongadzeIglic:
         )
 
         # Compute the surface electric field
-        electric_field = y[1, :, 0] * self.kbt_ev
+        electric_field = -y[1, :, 0] * self.kbt_ev
         permittivity = self.permittivity(y[:, :, 0])
 
         # Compute the surface charge
         surface_charge = (
-            -constants.epsilon_0
+            constants.epsilon_0
             * permittivity
             * electric_field
             / constants.angstrom
