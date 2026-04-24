@@ -27,7 +27,7 @@ from frumkin.gongadze_iglic import GongadzeIglic
 model = GongadzeIglic(el, ohp=3)
 ```
 
-The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Angstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa).
+The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Ångstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa).
 
 It is also possible to specify the permittivity in the Stern layer to a fixed value with the `eps_stern` parameter. If it is not specified, the Stern layer permittivity is continuous with the bulk permittivity and thus depends on the local electric field.
 
@@ -56,7 +56,7 @@ For detailed examples, see the `examples` folder.
 
 ## Units
 
-* The standard unit of length is Angstrom (Å) and the standard unit of energy is electronvolt (eV).
+* The standard unit of length is Ångstrom (Å) and the standard unit of energy is electronvolt (eV).
 * The second-order Poisson-Boltzmann equation has been rewritten into a system of two first-order equations (the derivation was rather involved and was checked with Wolfram Mathematica; it still needs to be written out at some point). A starting point for redoing this process with SymPy can be found in `solving.ipynb`.
 
 ## Further reading
