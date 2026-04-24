@@ -13,8 +13,8 @@ from frumkin.electrolyte import LatticeElectrolyte, Ion, Water
 conc = 1e-2  # molar concentration
 el = LatticeElectrolyte([
     Water(),
-    Ion(name=r"Na$^+$", size=6, concentration=conc, charge=+1),
-    Ion(name=r"Cl$^-$", size=2, concentration=conc, charge=-1),
+    Ion(name=r"cation", size=6, concentration=conc, charge=+1),
+    Ion(name=r"anion", size=2, concentration=conc, charge=-1),
 ])
 ```
 
@@ -24,21 +24,21 @@ Next, we set up the model:
 
 ```python
 from frumkin.gongadze_iglic import GongadzeIglic
-model = GongadzeIglic(el, ohp=2.8)
+model = GongadzeIglic(el, ohp=3)
 ```
 
 The `ohp` (outer Helmholtz plane) parameter specifies the distance of closest approach for ions in Angstrom. If it is not specified, the model will calculate `ohp` as half the size of a counterion (positive ions if the surface is negatively charged and vice versa).
 
-It is also possible to specify the permittivity in the Stern layer to a fixed value with the `eps_stern` parameter. If it is not specified, the permittivity depends on the local electric field.
+It is also possible to specify the permittivity in the Stern layer to a fixed value with the `eps_stern` parameter. If it is not specified, the Stern layer permittivity is continuous with the bulk permittivity and thus depends on the local electric field.
 
 Given an array of potentials w.r.t the potential of zero charge, we can run a voltammetry experiment and plot the resulting surface charge and capacitance:
 ```python
 import numpy as np
 potential = np.linspace(-1, 1, 200)
 result = model.voltammetry(potential)
-f = result.plot()
 ```
-(the `f=` is necessary in notebooks to not get double figures).
+
+The `result` object has attributes `potential`, `capacitance`, `surface_charge` and `electric_field`. For example, one can plot the capacitance:
 
 ![Charge and capacitance plots](examples/result1.png)
 
@@ -46,16 +46,17 @@ We can also show the spatial profiles of the double layer at a fixed potential, 
 
 ```python
 profiles = model.single_point(potential=-1)
-f2 = profiles.plot()
 ```
+
+The `profiles` object has attributes `x`, `potential`, `electric_field`, `permittivity` and `concentrations`. The latter is a dictionary, so one can for example access the cation concentration profile through `concentrations['cation']` (same name as specified in the `LatticeElectrolyte` object when it was created).
 
 ![Spatial extent of the double layer](examples/result2.png)
 
-For more examples, see the `examples` folder.
+For detailed examples, see the `examples` folder.
 
-## Nondimensionalization
+## Units
 
-* The standard unit of length is Angstrom ($\mathrm{\AA}$) and the standard unit of energy is electronvolt (eV).
+* The standard unit of length is Angstrom (Å) and the standard unit of energy is electronvolt (eV).
 * The second-order Poisson-Boltzmann equation has been rewritten into a system of two first-order equations (the derivation was rather involved and was checked with Wolfram Mathematica; it still needs to be written out at some point). A starting point for redoing this process with SymPy can be found in `solving.ipynb`.
 
 ## Further reading
@@ -67,7 +68,7 @@ Further theoretical background on modified Poisson-Boltzmann models:
 * Density-potential functional theory of electric double layers, field theory perspective: [Huang (2021)](https://doi.org/10.1016/j.electacta.2021.138720).
 
 ## Development
-In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PRXEnergy.3.043008), and [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009).
+In the future it would be interesting to add orbital-free density functional theory, [chemisorption](https://doi.org/10.1103/PRXEnergy.3.043008), [solvent structure](https://doi.org/10.1103/PhysRevApplied.23.024009) and more surface-specific boundary conditions, such as for metal oxides ([this](https://pubs.acs.org/doi/full/10.1021/acs.jpcc.6b03930) and [this](https://pubs.acs.org/doi/full/10.1021/jacsau.2c00650) paper for example -- a start has been made in the `dev-waterlayer` branch).
 
 
 It might be good to upgrade the solver from SciPy's `solve_bvp` to a finite element solver like FEniCS. Such a solver has already been implemented for Poisson-Nernst-Planck models in the [electrochemistry module](https://libatoms.github.io/matscipy/applications/electrochemistry_2.html) of `matscipy`.
