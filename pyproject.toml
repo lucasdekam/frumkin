@@ -11,7 +11,7 @@ dependencies = [
     "matplotlib",
 ]
 authors = [
-  {name="Lucas B.T. de Kam", email="l.b.t.de.kam@lic.leidenuniv.nl" },
+  {name="Lucas B.T. de Kam", email="lucas.de.kam@tum.de" },
 ]
 
 [tool.setuptools.packages.find]
