@@ -4,6 +4,13 @@ _Alexander Frumkin was a Soviet Russian electrochemist, famous for his contribut
 
 This repository contains code for modelling the electric double layer (in absence of chemisorption) using modified Poisson-Boltzmann theory. The theory is largely based on the work of [Iglič, Gongadze, and Kralj-Iglič (2019)](https://physics.fe.uni-lj.si/publications/pdf/Iglic_et_al_PRINTED_Acta_Chim_Slov_2019.pdf). The code is intended to be easy to use, for easy comparison to experimental capacitance data.
 
+## Installation
+Install from latest Git commit:
+
+```
+pip install git+https://github.com/lucasdekam/frumkin
+```
+
 ## Minimal example
 
 First, we need to define an electrolyte. We specify a list of solvents and ions. Water has been implemented out-of-the-box, and has size parameter 1. The ions have sizes 6 and 2, respectively. The size parameter specifies the size of species relative to the lattice spacing. The lattice spacing is defined here such that if all lattice sites are occupied by water molecules, their density equals the water density at room temperature.
