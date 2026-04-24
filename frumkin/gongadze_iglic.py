@@ -231,7 +231,7 @@ class GongadzeIglic:
         self,
         potential: np.ndarray,
         tol: float = 1e-3,
-    ) -> np.ndarray:
+    ) -> VoltammetryResult:
         """
         Perform a numerical solution to a potential sweep for the defined double-layer model.
 
@@ -239,8 +239,6 @@ class GongadzeIglic:
         ----------
         potential : np.ndarray
             Applied potential array.
-        x_mesh : np.ndarray, optional
-            Spatial mesh points.
         tol : float, optional
             Tolerance for the solver. Default is 1e-3.
 
@@ -263,12 +261,12 @@ class GongadzeIglic:
         )
 
         # Compute the surface electric field
-        electric_field = y[1, :, 0] * self.kbt_ev
+        electric_field = -y[1, :, 0] * self.kbt_ev
         permittivity = self.permittivity(y[:, :, 0])
 
         # Compute the surface charge
         surface_charge = (
-            -constants.epsilon_0
+            constants.epsilon_0
             * permittivity
             * electric_field
             / constants.angstrom
@@ -282,13 +280,14 @@ class GongadzeIglic:
             potential=potential,  # V
             surface_charge=surface_charge,  # (uC/cm2)
             capacitance=capacitance,  # (uF/cm2)
+            electric_field=electric_field,  # V/A
         )
 
     def single_point(
         self,
         potential: float,
         tol: float = 1e-3,
-    ) -> np.ndarray:
+    ) -> SinglePointResult:
         """
         Compute spatial information about the double layer at a certain potential.
 
