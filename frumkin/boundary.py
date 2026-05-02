@@ -5,7 +5,7 @@ Boundary geometries for Poisson-Boltzmann models.
 from abc import ABC, abstractmethod
 from typing import Optional
 import numpy as np
-from stern import SternModel
+from .stern import SternModel
 
 
 class Boundary(ABC):
@@ -73,12 +73,12 @@ class SemiInfinite(Boundary):
         )
 
     def left_profile(self, ya, y0, eps_diffuse):
-        return self.stern.profile(ya[1], y0, eps_diffuse)
+        return self.stern.profile(ya, y0, eps_diffuse)
 
     def right_profile(self, yb, y0, eps_diffuse):
         # No right Stern layer in a semi-infinite system. Return
         # expected bulk values
-        x, y, eps = self.stern.profile(0.0, 0.0, eps_diffuse)
+        x, y, eps = self.stern.profile(np.zeros(yb.shape), 0.0, eps_diffuse)
         return x, np.zeros(y.shape), np.full(eps.shape, eps)
 
 
@@ -101,13 +101,13 @@ class Symmetric(Boundary):
         )
 
     def left_profile(self, ya, y0, eps_diffuse):
-        return self.stern.profile(ya[1], y0, eps_diffuse)
+        return self.stern.profile(ya, y0, eps_diffuse)
 
     def right_profile(self, yb, y0, eps_diffuse):
         # x runs from the right electrode (x=0) inward to the right OHP (x=ohp).
         # The diffuse-side field used by the Stern model along this inward axis
         # is -yb[1] (sign flips relative to the global x-axis).
-        return self.stern_right.profile(-yb[1], y0, eps_diffuse)
+        return self.stern_right.profile(yb, y0, eps_diffuse)
 
 
 class Antisymmetric(Boundary):
@@ -126,8 +126,8 @@ class Antisymmetric(Boundary):
         )
 
     def left_profile(self, ya, y0, eps_diffuse):
-        return self.stern.profile(ya[1], y0, eps_diffuse)
+        return self.stern.profile(ya, y0, eps_diffuse)
 
     def right_profile(self, yb, y0, eps_diffuse):
         # Right electrode is at -y0; same axis-flip on the field as in Symmetric.
-        return self.stern_right.profile(-yb[1], -y0, eps_diffuse)
+        return self.stern_right.profile(yb, -y0, eps_diffuse)

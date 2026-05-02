@@ -336,16 +336,23 @@ class GongadzeIglic:
         )[:, -1, :]
 
         eps_diffuse = self.permittivity(y)
+        y_electrode = potential / self.kbt_ev
         x_l, y_l, eps_l = self.boundary.left_profile(
-            y[0, 0], y0, eps_diffuse=eps_diffuse[0]
+            y[:, 0], y_electrode, eps_diffuse=eps_diffuse[0]
         )
         x_r, y_r, eps_r = self.boundary.right_profile(
-            y[0, -1], y0, eps_diffuse=eps_diffuse[-1]
+            y[:, -1], y_electrode, eps_diffuse=eps_diffuse[-1]
         )
 
-        x = np.concatenate([x_l, self.x_mesh + x_l[-1], self.x_mesh[-1] - x_r[::-1]])
+        x = np.concatenate(
+            [
+                x_l,
+                self.x_mesh + x_l[-1],
+                self.x_mesh[-1] + x_l[-1] + x_r[-1] - x_r[::-1],
+            ]
+        )
         y_all = np.concatenate([y_l, y, y_r[:, ::-1]], axis=1)
-        eps = np.concatenate([eps_l, eps_diffuse, eps_r])
+        eps = np.concatenate([eps_l, eps_diffuse, eps_r[::-1]])
 
         return SinglePointResult(
             x=x,

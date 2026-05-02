@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import numpy as np
 from scipy import constants
-from tools.langevin import langevin_x
+from .tools.langevin import langevin_x
 
 
 class SternModel(ABC):
@@ -32,11 +32,12 @@ class SternModel(ABC):
         """
 
     @abstractmethod
-    def profile(self, yp_ohp: float, y_metal: float, eps_diffuse: float):
+    def profile(self, y_ohp: np.ndarray, y_metal: float, eps_diffuse: float):
         """
         Return (x, y, eps) sampled from the electrode (x=0) to the OHP
         (x=self.ohp), with y_metal the dimensionless potential at the electrode.
-        y has shape (2, npoints): y[0] is the potential, y[1] is its derivative.
+        y_ohp has shape (2,) and y has shape (2,npoints): y[0] is the potential,
+        y[1] is its derivative.
         """
 
 
@@ -66,15 +67,14 @@ class SimpleStern(SternModel):
         # => drop = y'_diffuse * eps_diffuse / eps_stern * d
         return yp_ohp * self._ohp * self._eps_ratio(eps_diffuse)
 
-    def profile(self, yp_ohp, y_metal, eps_diffuse):
+    def profile(self, y_ohp, y_metal, eps_diffuse):
         n = 10
         x = np.linspace(0, self._ohp, n)
         eps_val = self.eps_stern if self.eps_stern is not None else eps_diffuse
         eps = np.full(n, eps_val)
         # Linear from y_metal at x=0 down to y_metal - drop at x=ohp.
-        y_ohp = y_metal - self.drop(yp_ohp, eps_diffuse)
-        y = np.linspace(y_metal, y_ohp, n)
-        yp = np.full(n, yp_ohp * self._eps_ratio(eps_diffuse))
+        y = np.linspace(y_metal, y_ohp[0], n)
+        yp = np.full(n, y_ohp[1] * self._eps_ratio(eps_diffuse))
         return x, np.vstack([y, yp]), eps
 
 
@@ -173,7 +173,8 @@ class WaterLayer(SternModel):
         drops, dy_dipole = self._components(yp, eps_diffuse)
         return float(drops.sum()) + float(dy_dipole)
 
-    def profile(self, yp_ohp, y_metal, eps_diffuse):
+    def profile(self, y_ohp, y_metal, eps_diffuse):
+        yp_ohp = y_ohp[1]
         yp_ohp = yp_ohp.item() if hasattr(yp_ohp, "item") else float(yp_ohp)
         drops, dy_dipole = self._components(yp_ohp, eps_diffuse)
 
