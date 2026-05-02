@@ -51,21 +51,11 @@ class Boundary(ABC):
 
     @abstractmethod
     def left_profile(self, ya, y0: float, eps_diffuse: float):
-        """(x, y, yp, eps) through the left Stern region."""
+        """(x, y, eps) through the left Stern region."""
 
     @abstractmethod
     def right_profile(self, yb, y0: float, eps_diffuse: float):
-        """(x, y, yp, eps) through the right Stern region; NaNs if absent."""
-
-
-def _nan_profile(n: int):
-    """Helper: a 4-tuple of independent NaN arrays of length n."""
-    return (
-        np.full(n, np.nan),
-        np.full(n, np.nan),
-        np.full(n, np.nan),
-        np.full(n, np.nan),
-    )
+        """(x, y, eps) through the right Stern region; NaNs if absent."""
 
 
 class SemiInfinite(Boundary):
@@ -86,11 +76,10 @@ class SemiInfinite(Boundary):
         return self.stern.profile(ya[1], y0, eps_diffuse)
 
     def right_profile(self, yb, y0, eps_diffuse):
-        # No right Stern layer in a semi-infinite system. Return NaN arrays
-        # whose length matches what the left profile would produce, so any
-        # downstream code expecting matching shapes still works.
-        x_left, _, _, _ = self.stern.profile(0.0, 0.0, eps_diffuse)
-        return _nan_profile(len(x_left))
+        # No right Stern layer in a semi-infinite system. Return
+        # expected bulk values
+        x, y, eps = self.stern.profile(0.0, 0.0, eps_diffuse)
+        return x, np.zeros(y.shape), np.full(eps.shape, eps)
 
 
 class Symmetric(Boundary):

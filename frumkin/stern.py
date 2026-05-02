@@ -34,8 +34,9 @@ class SternModel(ABC):
     @abstractmethod
     def profile(self, yp_ohp: float, y_metal: float, eps_diffuse: float):
         """
-        Return (x, y, yp, eps) sampled from the electrode (x=0) to the OHP
+        Return (x, y, eps) sampled from the electrode (x=0) to the OHP
         (x=self.ohp), with y_metal the dimensionless potential at the electrode.
+        y has shape (2, npoints): y[0] is the potential, y[1] is its derivative.
         """
 
 
@@ -74,7 +75,7 @@ class SimpleStern(SternModel):
         y_ohp = y_metal - self.drop(yp_ohp, eps_diffuse)
         y = np.linspace(y_metal, y_ohp, n)
         yp = np.full(n, yp_ohp * self._eps_ratio(eps_diffuse))
-        return x, y, yp, eps
+        return x, np.vstack([y, yp]), eps
 
 
 class WaterLayer(SternModel):
@@ -124,8 +125,6 @@ class WaterLayer(SternModel):
     def ohp(self) -> float:
         return float(self.d.sum())
 
-    # --- physics helpers -------------------------------------------------
-
     def _dip_e_angstrom(self):
         """Dipole moment in units of [e * Angstrom]."""
         return (
@@ -169,8 +168,6 @@ class WaterLayer(SternModel):
         )
         return drops, dy_dipole
 
-    # --- SternModel interface --------------------------------------------
-
     def drop(self, yp_ohp, eps_diffuse):
         yp = yp_ohp.item() if hasattr(yp_ohp, "item") else float(yp_ohp)
         drops, dy_dipole = self._components(yp, eps_diffuse)
@@ -212,4 +209,4 @@ class WaterLayer(SternModel):
         y = np.concatenate(ys)
         yp = np.concatenate(yps)
         eps = np.concatenate(es)
-        return x, y, yp, eps
+        return x, np.vstack([y, yp]), eps

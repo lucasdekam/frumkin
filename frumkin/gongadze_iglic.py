@@ -2,7 +2,7 @@
 Modelling the double layer using the Gongadze-Iglic approach.
 """
 
-from typing import Optional, Dict, Literal
+from typing import Optional, Dict
 import numpy as np
 from numpy import newaxis
 from scipy import constants
@@ -13,7 +13,7 @@ from .tools import langevin as L
 from .tools.mesh import get_default_mesh
 from .electrolyte import LatticeElectrolyte
 from .results import VoltammetryResult, SinglePointResult
-from . import boundary_conditions as bc
+from .boundary import Boundary
 
 
 class GongadzeIglic:
@@ -55,20 +55,13 @@ class GongadzeIglic:
     def __init__(
         self,
         electrolyte: LatticeElectrolyte,
+        boundary: Boundary,
         temperature: float = 298,
-        ohp: Optional[float] = None,
-        eps_stern: Optional[float] = None,
-        boundary: Literal[
-            "semi-infinite",
-            "symmetric",
-            "antisymmetric",
-        ] = "semi-infinite",
         xmax: float = 1000,
         x_mesh: Optional[np.ndarray] = None,
     ) -> None:
         self.el = electrolyte
-        self.ohp = ohp
-        self.eps_stern = eps_stern
+        self.boundary = boundary
         kbt = constants.Boltzmann * temperature
         self.kappa = (
             constants.elementary_charge**2
@@ -184,22 +177,13 @@ class GongadzeIglic:
         np.ndarray
             An array containing the boundary condition residuals.
         """
-        ohp = self.ohp if self.ohp else self.el.ohp(y0)
-        eps_ratio = (
-            self.permittivity(ya.reshape(2, 1)).squeeze() / self.eps_stern
-            if self.eps_stern
-            else 1
+        boundary_residual = self.boundary.residual(
+            ya,
+            yb,
+            y0,
+            eps_diffuse=self.permittivity(ya.reshape(2, 1)).squeeze(),
         )
-        if self.boundary == "semi-infinite":
-            boundary_residual = bc.semi_infinite(ya, yb, y0, ohp, eps_ratio)
-        elif self.boundary == "symmetric":
-            boundary_residual = bc.symmetric(ya, yb, y0, ohp, eps_ratio)
-        elif self.boundary == "antisymmetric":
-            boundary_residual = bc.antisymmetric(ya, yb, y0, ohp, eps_ratio)
-        else:
-            raise ValueError(
-                f"Invalid boundary type: {self.boundary}. Must be 'semi-infinite', 'symmetric', or 'antisymmetric'."
-            )
+
         return boundary_residual
 
     def permittivity(self, y: np.ndarray) -> np.ndarray:
@@ -304,7 +288,7 @@ class GongadzeIglic:
             Results container with potential, electric field, permittivity, and concentration profiles.
         """
 
-        def _species_concentrations(y, x_stern_left, x_stern_right) -> Dict:
+        def _species_concentrations(y, x_l, x_r) -> Dict:
             n_ion, n_sol = self.densities(y)
 
             species_concentrations = {}
@@ -313,9 +297,9 @@ class GongadzeIglic:
             for i, name in enumerate(self.el.ion_names):
                 species_concentrations[name] = np.concatenate(
                     [
-                        np.zeros(x_stern_left.shape) * np.nan,
+                        np.full(x_l.shape, np.nan),
                         n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
-                        np.zeros(x_stern_right.shape) * np.nan,
+                        np.full(x_r.shape, np.nan),
                     ]
                 )
 
@@ -323,9 +307,9 @@ class GongadzeIglic:
             for i, name in enumerate(self.el.sol_names):
                 species_concentrations[name] = np.concatenate(
                     [
-                        np.zeros(x_stern_right.shape) * np.nan,
+                        np.full(x_l.shape, np.nan),
                         n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
-                        np.zeros(x_stern_right.shape) * np.nan,
+                        np.full(x_r.shape, np.nan),
                     ]
                 )
 
@@ -351,62 +335,22 @@ class GongadzeIglic:
             tol=tol,
         )[:, -1, :]
 
-        # Compute quantities in the diffuse layer
-        diffuse_potential = y[0, :] * self.kbt_ev
-        diffuse_efield = -y[1, :] * self.kbt_ev
-        diffuse_permittivity = self.permittivity(y)
-
-        # Compute quantities in the left Stern layer
-        ohp = self.ohp if self.ohp else self.el.ohp(potential)
-        stern_x = np.linspace(0, ohp, 10)
-        stern_permittivity = np.ones(stern_x.shape) * (
-            self.eps_stern if self.eps_stern else diffuse_permittivity[0]
+        eps_diffuse = self.permittivity(y)
+        x_l, y_l, eps_l = self.boundary.left_profile(
+            y[0, 0], y0, eps_diffuse=eps_diffuse[0]
         )
-        eps_ratio = diffuse_permittivity[0] / stern_permittivity
-        stern_potential = (
-            diffuse_potential[0] + diffuse_efield[0] * (ohp - stern_x) * eps_ratio
+        x_r, y_r, eps_r = self.boundary.right_profile(
+            y[0, -1], y0, eps_diffuse=eps_diffuse[-1]
         )
-        stern_efield = np.ones(stern_x.shape) * (potential - diffuse_potential[0]) / ohp
 
-        # Compute quantities in the right Stern layer
-        if self.boundary == "semi-infinite":
-            r_stern_permittivity = np.ones(stern_x.shape) * diffuse_permittivity[-1]
-            r_stern_potential = np.ones(stern_x.shape) * diffuse_potential[-1]
-            r_stern_efield = np.ones(stern_x.shape) * diffuse_efield[-1]
-        elif self.boundary == "symmetric":
-            r_stern_permittivity = np.ones(stern_x.shape) * (
-                self.eps_stern if self.eps_stern else diffuse_permittivity[-1]
-            )
-            eps_ratio = diffuse_permittivity[-1] / r_stern_permittivity
-            r_stern_potential = (
-                diffuse_potential[-1] - diffuse_efield[-1] * stern_x * eps_ratio
-            )
-            r_stern_efield = (
-                -np.ones(stern_x.shape) * (potential - diffuse_potential[-1]) / ohp
-            )
-        elif self.boundary == "antisymmetric":
-            r_stern_permittivity = np.ones(stern_x.shape) * (
-                self.eps_stern if self.eps_stern else diffuse_permittivity[-1]
-            )
-            eps_ratio = diffuse_permittivity[-1] / r_stern_permittivity
-            r_stern_potential = (
-                diffuse_potential[-1] - diffuse_efield[-1] * stern_x * eps_ratio
-            )
-            r_stern_efield = (
-                np.ones(stern_x.shape) * (potential - diffuse_potential[-1]) / ohp
-            )
+        x = np.concatenate([x_l, self.x_mesh + x_l[-1], self.x_mesh[-1] - x_r[::-1]])
+        y_all = np.concatenate([y_l, y, y_r[:, ::-1]], axis=1)
+        eps = np.concatenate([eps_l, eps_diffuse, eps_r])
 
-        r_stern_x = np.linspace(self.x_mesh[-1] + ohp, self.x_mesh[-1] + 2 * ohp, 10)
         return SinglePointResult(
-            x=np.concatenate([stern_x, self.x_mesh + ohp, r_stern_x]),
-            potential=np.concatenate(
-                [stern_potential, diffuse_potential, r_stern_potential]
-            ),
-            electric_field=np.concatenate(
-                [stern_efield, diffuse_efield, r_stern_efield]
-            ),
-            permittivity=np.concatenate(
-                [stern_permittivity, diffuse_permittivity, r_stern_permittivity]
-            ),
-            concentrations=_species_concentrations(y, stern_x, r_stern_x),
+            x=x,
+            potential=y_all[0, :] * self.kbt_ev,
+            electric_field=y_all[1, :] * self.kbt_ev,
+            permittivity=eps,
+            concentrations=_species_concentrations(y, x_l, x_r),
         )
