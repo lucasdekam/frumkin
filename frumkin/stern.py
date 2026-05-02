@@ -194,7 +194,7 @@ class WaterLayer(SternModel):
         y_start = y_metal
         for i, (d_i, eps_i, drop_i) in enumerate(zip(self.d, self.eps, drops)):
             x_slab = np.linspace(x_start, x_start + d_i, n_per_slab)
-            y_slab = np.linspace(y_start, y_start - drop_i, n_per_slab)
+            y_slab = np.linspace(y_start, y_start + drop_i, n_per_slab)
             yp_slab = np.full(n_per_slab, yp_ohp * eps_diffuse / eps_i)
             eps_slab = np.full(n_per_slab, eps_i)
 
@@ -204,7 +204,7 @@ class WaterLayer(SternModel):
             es.append(eps_slab)
 
             x_start += d_i
-            y_start -= drop_i
+            y_start += drop_i
 
             # Dipole jump as a sheet at the outer edge of the water layer.
             if i == 1:
