@@ -16,12 +16,10 @@ class Boundary(ABC):
     combines them with the domain geometry (semi-infinite, symmetric, or
     antisymmetric) to produce:
 
-      - residual(ya, yb, y0, eps_diffuse): the 2-vector residual for solve_bvp.
-      - left_profile(ya, y0, eps_diffuse): (x, y, yp, eps) through the
-        left Stern region (x=0 at electrode, x=stern.ohp at OHP).
-      - right_profile(yb, y0, eps_diffuse): (x, y, yp, eps) through the
-        right Stern region with the same x convention. For semi-infinite
-        systems this returns NaN-filled arrays.
+      - residual(ya, yb, y0, eps_diffuse): [y, y'] residual vector for solve_bvp
+      - left_profile(ya, y0, eps_diffuse): (x, y, eps) in left Stern region
+      - right_profile(yb, y0, eps_diffuse): (x, y, yp, eps) in right Stern region
+      (relevant for symmetric and antisymmetric geometries)
 
     Parameters
     ----------
@@ -107,6 +105,9 @@ class Symmetric(Boundary):
         # x runs from the right electrode (x=0) inward to the right OHP (x=ohp).
         # The diffuse-side field used by the Stern model along this inward axis
         # is -yb[1] (sign flips relative to the global x-axis).
+        # Maybe rewrite this later to have self.stern.profile return y and y'
+        # separately and reverse the sign of y' (since y'=dy/d(-x)).
+        # (and maybe reverse the array directions too).
         return self.stern_right.profile(yb, y0, eps_diffuse)
 
 
