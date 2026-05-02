@@ -24,32 +24,14 @@ class GongadzeIglic:
     ----------
     electrolyte : LatticeElectrolyte
         The electrolyte model.
+    boundary : Boundary
+        Boundary condition (SemiInfinite, Symmetric, or Antisymmetric).
     temperature : float, optional
         Temperature in Kelvin. Default is 298 K.
-    ohp : float, optional
-        Outer Helmholtz plane distance in Angstrom.
-    eps_stern : float, optional
-        Stern layer permittivity.
-    boundary: "semi-infinite", "symmetric" or "anti-symmetric"
-        Specifies boundary condition type.
-    xmax: float, optional
-        system length in Angstrom. Default: 1000 A (100 nm). Not used if a custom
-        x_mesh is specified.
-    x_mesh: np.ndarray, optional
-        custom mesh for the system. If not specified, a suitable default is chosen
-
-    Attributes
-    ----------
-    el : LatticeElectrolyte
-        The electrolyte parameters.
-    ohp : float, optional
-        Outer Helmholtz plane distance.
-    eps_stern : float, optional
-        Stern layer permittivity.
-    kappa : float
-        Parameter resulting from the nondimensionalization procedure.
-    kbt_ev : float
-        Thermal energy in electronvolts.
+    xmax : float, optional
+        System length in Angstrom. Default: 1000 A. Not used if x_mesh is given.
+    x_mesh : np.ndarray, optional
+        Custom mesh for the system.
     """
 
     def __init__(
@@ -70,92 +52,72 @@ class GongadzeIglic:
             / kbt
         )
         self.kbt_ev = kbt / constants.elementary_charge
-        self.boundary = boundary
         if x_mesh is None:
             self.x_mesh = get_default_mesh(self.boundary, xmax)
         else:
             self.x_mesh = x_mesh
 
-    def densities(self, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Calculate the ion and solvent densities based on the provided potential array.
-
-        Parameters
-        ----------
-        y : np.ndarray
-            A 2D array where the first row represents the dimensionless
-            electric potential and the second row represents the dimensionless
-            derivative of the potential (-electric field).
-
-        Returns
-        -------
-        tuple
-            A tuple containing two ndarrays:
-            - ion_densities (np.ndarray): The calculated ion densities.
-            - sol_densities (np.ndarray): The calculated solvent densities.
-        """
-        ion_boltzmann_fac = np.exp(-self.el.ion_q[:, newaxis] * y[0, :])
-        sol_boltzmann_fac = L.sinh_x_over_x(self.el.sol_p[:, newaxis] * y[1, :])
-        denom = np.sum(
-            self.el.ion_f_b[:, newaxis] * ion_boltzmann_fac, axis=0
-        ) + np.sum(self.el.sol_f_b[:, newaxis] * sol_boltzmann_fac, axis=0)
-        ion_densities = self.el.ion_n_b[:, newaxis] * ion_boltzmann_fac / denom
-        sol_densities = self.el.sol_n_b[:, newaxis] * sol_boltzmann_fac / denom
-        return ion_densities, sol_densities
-
     def ode_rhs(
         self, x: np.ndarray, y: np.ndarray  # pylint: disable=unused-argument
     ) -> np.ndarray:
         """
-        Compute the right-hand side of the differential equation for the ODE solver.
+        Right-hand side of the ODE system for the Poisson-Boltzmann BVP,
+
+                d(ε·φ')/dx = -κ·Σq_i·n_i
+
+        with ε = ε(φ, φ'). Applying the chain rule gives
+
+            dφ'/dx = -κ · (ion_charge_density + phi_eps_coupling) / eps_eff
+
+        where eps_eff = d(ε·φ')/dφ' = ε + φ'·∂ε/∂φ' is the effective permittivity
+        that appears when ε varies with position.
 
         Parameters
         ----------
         x : np.ndarray
-            Independent variable (not used in the computation).
+            Spatial coordinate (unused; the ODE has no explicit x dependence).
         y : np.ndarray
-            Dependent variable, where y[0, :] represents the function values
-            and y[1, :] represents the derivatives.
-
-        Returns
-        -------
-        np.ndarray
-            A 2D array where the first row contains the derivatives of y[0, :]
-            and the second row contains the derivative of y[1, :].
+            Shape (2, N): y[0] is the dimensionless potential φ = eφ/kT,
+            y[1] is its spatial derivative.
         """
-        dy0 = y[1, :]
-        ion_densities, sol_densities = self.densities(y)
-        ion_f = self.el.ion_sizes[:, newaxis] * ion_densities / self.el.n_site
-        sol_f = self.el.sol_sizes[:, newaxis] * sol_densities / self.el.n_site
-        f_1 = np.sum(self.el.ion_q[:, newaxis] * ion_densities, axis=0)
-        f_2 = np.sum(
-            self.el.sol_p[:, newaxis]
-            * y[1, :]
-            * sol_densities
-            * L.langevin_x(self.el.sol_p[:, newaxis] * y[1, :])
-            * np.sum(self.el.ion_q[:, newaxis] * ion_f, axis=0),
-            axis=0,
-        )
-        g_1 = np.sum(
-            self.el.sol_p[:, newaxis] ** 2
-            * sol_densities
-            * L.d_langevin_x(self.el.sol_p[:, newaxis] * y[1, :]),
-            axis=0,
-        )
-        g_2 = np.sum(
-            self.el.sol_p[:, newaxis] ** 2
-            * sol_densities
-            * L.langevin_x(self.el.sol_p[:, newaxis] * y[1, :]) ** 2
-            * (1 - np.sum(sol_f, axis=0)),
+        n_ion, n_sol = self.el.number_densities(y[0], y[1])
+        ion_vf = self.el.ion_sizes[:, newaxis] * n_ion / self.el.n_site
+        sol_vf = self.el.sol_sizes[:, newaxis] * n_sol / self.el.n_site
+
+        # Free ion charge density Σ q_i · n_i
+        ion_charge_density = np.sum(self.el.ion_q[:, newaxis] * n_ion, axis=0)
+
+        # term due to dependence of ε on φ via the ion Boltzmann factors inside
+        # Z (in n_s).
+        phi_eps_coupling = np.sum(
+            self.el.sol_dipole[:, newaxis]
+            * y[1]
+            * n_sol
+            * L.langevin_x(self.el.sol_dipole[:, newaxis] * y[1])
+            * np.sum(self.el.ion_q[:, newaxis] * ion_vf, axis=0),
             axis=0,
         )
 
-        dy1 = (
-            -self.kappa
-            * (f_1 + f_2)
-            / (self.el.min_eps + self.kappa * g_1 + self.kappa * g_2)
+        # Direct Langevin response: ∂(polarization density)/∂E via L'(E)
+        deps_direct = np.sum(
+            self.el.sol_dipole[:, newaxis] ** 2
+            * n_sol
+            * L.d_langevin_x(self.el.sol_dipole[:, newaxis] * y[1]),
+            axis=0,
         )
-        return np.vstack([dy0, dy1])
+        # Lattice response: ∂(polarization density)/∂E via n_s(E) through Z
+        deps_lattice = np.sum(
+            self.el.sol_dipole[:, newaxis] ** 2
+            * n_sol
+            * L.langevin_x(self.el.sol_dipole[:, newaxis] * y[1]) ** 2
+            * (1 - np.sum(sol_vf, axis=0)),
+            axis=0,
+        )
+        # d(ε·y1)/dy1, this is not the permittivity ε itself
+        eps_eff = self.el.min_eps + self.kappa * (deps_direct + deps_lattice)
+
+        dy1 = -self.kappa * (ion_charge_density + phi_eps_coupling) / eps_eff
+        return np.vstack([y[1], dy1])
 
     def boundary_condition(
         self, ya: np.ndarray, yb: np.ndarray, y0: float
@@ -166,50 +128,29 @@ class GongadzeIglic:
         Parameters
         ----------
         ya : np.ndarray
-            The solution vector at the left of the interval (outer Helmholtz plane).
+            Solution vector at the left boundary (outer Helmholtz plane).
         yb : np.ndarray
-            The solution vector at the right of the interval (electrolyte bulk).
+            Solution vector at the right boundary (electrolyte bulk).
         y0 : float
-            The value of the dimensionless potential at the electrode.
-
-        Returns
-        -------
-        np.ndarray
-            An array containing the boundary condition residuals.
+            Dimensionless potential at the electrode.
         """
-        boundary_residual = self.boundary.residual(
+        return self.boundary.residual(
             ya,
             yb,
             y0,
             eps_diffuse=self.permittivity(ya.reshape(2, 1)).squeeze(),
         )
 
-        return boundary_residual
-
     def permittivity(self, y: np.ndarray) -> np.ndarray:
         """
-        Compute the relative permittivity according to the Gongadze-Iglic model.
+        Local relative permittivity ε = min_eps + κ · Σ p_s² · n_s · L(p_s·E)/(p_s·E).
 
         Parameters
         ----------
         y : np.ndarray
-            A 2D array where the first row represents the dimensionless
-            potential and the second row represents the dimensionless derivative
-            of the potential. The columns represent the spatial points or, for
-            example, values at different potentials.
-
-        Returns
-        -------
-        np.ndarray
-            The computed relative permittivity for each column of y.
+            Shape (2, N): y[0] dimensionless potential, y[1] its derivative.
         """
-        _, sol_densities = self.densities(y)
-        return self.el.min_eps + self.kappa * np.sum(
-            self.el.sol_p[:, newaxis] ** 2
-            * sol_densities
-            * L.langevin_x_over_x(self.el.sol_p[:, newaxis] * y[1, :]),
-            axis=0,
-        )
+        return self.el.min_eps + self.kappa * self.el.polarization_density(y[0], y[1])
 
     def voltammetry(
         self,
@@ -222,15 +163,15 @@ class GongadzeIglic:
         Parameters
         ----------
         potential : np.ndarray
-            Applied potential array.
+            Applied potential array in V.
         tol : float, optional
-            Tolerance for the solver. Default is 1e-3.
+            Solver tolerance. Default is 1e-3.
 
         Returns
         -------
         VoltammetryResult
-            Results container with attributes potential, electric_field,
-            surface_charge, and capacitance.
+            Results container with potential, surface_charge (µC/cm²),
+            capacitance (µF/cm²), and electric_field (V/Å).
         """
         y0 = np.zeros((2, len(self.x_mesh)))
 
@@ -244,11 +185,9 @@ class GongadzeIglic:
             tol=tol,
         )
 
-        # Compute the surface electric field
         electric_field = -y[1, :, 0] * self.kbt_ev
         permittivity = self.permittivity(y[:, :, 0])
 
-        # Compute the surface charge
         surface_charge = (
             constants.epsilon_0
             * permittivity
@@ -256,15 +195,13 @@ class GongadzeIglic:
             / constants.angstrom
             * 100
         )
-
-        # Compute capacitance
         capacitance = np.gradient(surface_charge, edge_order=2) / np.gradient(potential)
 
         return VoltammetryResult(
             potential=potential,  # V
-            surface_charge=surface_charge,  # (uC/cm2)
-            capacitance=capacitance,  # (uF/cm2)
-            electric_field=electric_field,  # V/A
+            surface_charge=surface_charge,  # µC/cm²
+            capacitance=capacitance,  # µF/cm²
+            electric_field=electric_field,  # V/Å
         )
 
     def single_point(
@@ -273,91 +210,74 @@ class GongadzeIglic:
         tol: float = 1e-3,
     ) -> SinglePointResult:
         """
-        Compute spatial information about the double layer at a certain potential.
+        Compute spatial profiles through the double layer at a given potential.
 
         Parameters
         ----------
         potential : float
-            Applied potential at the electrode.
+            Applied potential at the electrode in V.
         tol : float, optional
-            Tolerance for the solver. Default is 1e-3.
+            Solver tolerance. Default is 1e-3.
 
         Returns
         -------
         SinglePointResult
-            Results container with potential, electric field, permittivity, and concentration profiles.
+            Profiles of potential, electric field, permittivity, and species
+            concentrations (mol/L) as a function of position (Å).
         """
 
         def _species_concentrations(y, x_l, x_r) -> Dict:
-            n_ion, n_sol = self.densities(y)
-
-            species_concentrations = {}
-
-            # Store ion densities
+            n_ion, n_sol = self.el.number_densities(y[0], y[1])
+            nan_l = np.full(x_l.shape, np.nan)
+            nan_r = np.full(x_r.shape, np.nan)
+            # Convert Å⁻³ → mol/L
+            to_molar = 1.0 / (1e3 * constants.Avogadro * constants.angstrom**3)
+            result = {}
             for i, name in enumerate(self.el.ion_names):
-                species_concentrations[name] = np.concatenate(
-                    [
-                        np.full(x_l.shape, np.nan),
-                        n_ion[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
-                        np.full(x_r.shape, np.nan),
-                    ]
-                )
-
-            # Store solvent densities
+                result[name] = np.concatenate([nan_l, n_ion[i] * to_molar, nan_r])
             for i, name in enumerate(self.el.sol_names):
-                species_concentrations[name] = np.concatenate(
-                    [
-                        np.full(x_l.shape, np.nan),
-                        n_sol[i, :] / 1e3 / constants.Avogadro / constants.angstrom**3,
-                        np.full(x_r.shape, np.nan),
-                    ]
-                )
+                result[name] = np.concatenate([nan_l, n_sol[i] * to_molar, nan_r])
+            return result
 
-            return species_concentrations
-
-        y0 = np.zeros((2, len(self.x_mesh)))
-        if potential != 0:
+        if np.abs(potential) < 0.01:
+            sweep_par = np.zeros(1)
+        else:
             step = potential / abs(potential) * 0.01 / self.kbt_ev
             sweep_par = np.arange(
                 start=0,
                 stop=potential / self.kbt_ev + step,
                 step=step,
             )
-        else:
-            sweep_par = np.zeros(1)
+
         y = sweep_solve_bvp(
             fun=self.ode_rhs,
             bc=self.boundary_condition,
             x0=self.x_mesh,
-            y0=y0,
+            y0=np.zeros((2, len(self.x_mesh))),
             sweep_par=sweep_par,
             sweep_par_start=0,
             tol=tol,
         )[:, -1, :]
 
         eps_diffuse = self.permittivity(y)
-        y_electrode = potential / self.kbt_ev
         x_l, y_l, eps_l = self.boundary.left_profile(
-            y[:, 0], y_electrode, eps_diffuse=eps_diffuse[0]
+            y[:, 0], potential / self.kbt_ev, eps_diffuse=eps_diffuse[0]
         )
         x_r, y_r, eps_r = self.boundary.right_profile(
-            y[:, -1], y_electrode, eps_diffuse=eps_diffuse[-1]
-        )
-
-        x = np.concatenate(
-            [
-                x_l,
-                self.x_mesh + x_l[-1],
-                self.x_mesh[-1] + x_l[-1] + x_r[-1] - x_r[::-1],
-            ]
+            y[:, -1], potential / self.kbt_ev, eps_diffuse=eps_diffuse[-1]
         )
         y_all = np.concatenate([y_l, y, y_r[:, ::-1]], axis=1)
-        eps = np.concatenate([eps_l, eps_diffuse, eps_r[::-1]])
 
         return SinglePointResult(
-            x=x,
-            potential=y_all[0, :] * self.kbt_ev,
-            electric_field=y_all[1, :] * self.kbt_ev,
-            permittivity=eps,
+            x=np.concatenate(
+                [
+                    x_l,
+                    self.x_mesh + x_l[-1],
+                    self.x_mesh[-1] + x_l[-1] + x_r[-1] - x_r[::-1],
+                ]
+            ),
+            potential=y_all[0] * self.kbt_ev,
+            electric_field=y_all[1] * self.kbt_ev,
+            permittivity=np.concatenate([eps_l, eps_diffuse, eps_r[::-1]]),
             concentrations=_species_concentrations(y, x_l, x_r),
         )
