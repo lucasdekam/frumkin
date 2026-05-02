@@ -160,8 +160,13 @@ class WaterLayer(SternModel):
         langevin_arg = dip * yp_ohp * eps_diffuse / self.eps[1] + self.delta_chemi
 
         dy_dipole = (
-            self.n_sites * self.water_coverage * dip * kappa * langevin_x(langevin_arg)
-        ) / self.eps[1]
+            self.n_sites
+            * self.water_coverage
+            * dip
+            * kappa
+            * langevin_x(langevin_arg).item()
+            / self.eps[1]
+        )
 
         drops = np.array(
             [yp_ohp * eps_diffuse / e * d for e, d in zip(self.eps, self.d)]
@@ -170,12 +175,16 @@ class WaterLayer(SternModel):
 
     def drop(self, yp_ohp, eps_diffuse):
         yp = yp_ohp.item() if hasattr(yp_ohp, "item") else float(yp_ohp)
-        drops, dy_dipole = self._components(yp, eps_diffuse)
-        return float(drops.sum()) + float(dy_dipole)
+        eps = eps_diffuse.item() if hasattr(eps_diffuse, "item") else float(eps_diffuse)
+        drops, dy_dipole = self._components(yp, eps)
+        return float(drops.sum()) - float(dy_dipole)
 
     def profile(self, y_ohp, y_metal, eps_diffuse):
         yp_ohp = y_ohp[1]
         yp_ohp = yp_ohp.item() if hasattr(yp_ohp, "item") else float(yp_ohp)
+        eps_diffuse = (
+            eps_diffuse.item() if hasattr(eps_diffuse, "item") else float(eps_diffuse)
+        )
         drops, dy_dipole = self._components(yp_ohp, eps_diffuse)
 
         n_per_slab = 5
